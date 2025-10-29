@@ -1,60 +1,67 @@
-import { generateAPIUrl } from '@/utils/utils';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport } from 'ai';
 import { fetch as expoFetch } from 'expo/fetch';
 import { useState } from 'react';
 import { SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
-export default function App() {
+// Use your .env variable for the API base URL
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8081';
+
+export default function Chatbot() {
   const [input, setInput] = useState('');
+
   const { messages, error, sendMessage } = useChat({
     transport: new DefaultChatTransport({
       fetch: expoFetch as unknown as typeof globalThis.fetch,
-      api: generateAPIUrl('/api/chat'),
+      api: `${API_BASE_URL}/api/chat`, // dynamically uses your deployed URL
     }),
-    onError: error => console.error(error, 'ERROR'),
+    onError: (error) => console.error('Chat Error:', error),
   });
 
   if (error) return <Text>{error.message}</Text>;
 
   return (
-    <SafeAreaView style={{ height: '100%' }}>
+    <SafeAreaView style={{ flex: 1 }}>
       <View
         style={{
-          height: '95%',
-          display: 'flex',
+          flex: 1,
           flexDirection: 'column',
           paddingHorizontal: 8,
         }}
       >
         <ScrollView style={{ flex: 1 }}>
-          {messages.map(m => (
+          {messages.map((m) => (
             <View key={m.id} style={{ marginVertical: 8 }}>
-              <View>
-                <Text style={{ fontWeight: 700 }}>{m.role}</Text>
-                {m.parts.map((part, i) => {
-                  switch (part.type) {
-                    case 'text':
-                      return <Text key={`${m.id}-${i}`}>{part.text}</Text>;
-                  }
-                })}
-              </View>
+              <Text style={{ fontWeight: '700', marginBottom: 4 }}>
+                {m.role === 'user' ? 'You' : 'Bot'}
+              </Text>
+              {m.parts.map((part, i) => {
+                if (part.type === 'text') {
+                  return <Text key={`${m.id}-${i}`}>{part.text}</Text>;
+                }
+                return null;
+              })}
             </View>
           ))}
         </ScrollView>
 
         <View style={{ marginTop: 8 }}>
           <TextInput
-            style={{ backgroundColor: 'black', padding: 8 }}
+            style={{
+              backgroundColor: '#f2f2f2',
+              padding: 8,
+              borderRadius: 8,
+            }}
             placeholder="Say something..."
             value={input}
-            onChange={e => setInput(e.nativeEvent.text)}
-            onSubmitEditing={e => {
-              e.preventDefault();
-              sendMessage({ text: input });
-              setInput('');
+            onChangeText={setInput}
+            onSubmitEditing={() => {
+              if (input.trim()) {
+                sendMessage({ text: input });
+                setInput('');
+              }
             }}
-            autoFocus={true}
+            autoFocus
           />
         </View>
       </View>
