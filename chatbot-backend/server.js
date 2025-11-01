@@ -1,41 +1,34 @@
-import bodyParser from 'body-parser';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import express from 'express';
-import OpenAI from 'openai';
-
-dotenv.config();
+// server.js
+import cors from "cors";
+import express from "express";
+import OpenAI from "openai";
 
 const app = express();
-const port = 3000;
-
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-const openai = new OpenAI({
+const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.post('/api/chat', async (req, res) => {
-  console.log('🟢 Received:', req.body);
+app.post("/api/chat", async (req, res) => {
+  const { message } = req.body;
 
   try {
-    const userMessage = req.body.messages || 'Hello!';
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: userMessage }],
+    const completion = await client.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        { role: "system", content: "You are a friendly financial mentor chatbot." },
+        { role: "user", content: message },
+      ],
     });
 
-    const reply = completion.choices[0].message.content;
-    console.log('🟣 Reply:', reply);
-
-    res.json({ text: reply });
+    res.json({ text: completion.choices[0].message.content });
   } catch (error) {
-    console.error('❌ Error:', error);
-    res.status(500).json({ error: error.message });
+    console.error("❌ Error:", error);
+    res.status(500).json({ error: "Something went wrong." });
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Server running on http://localhost:${port}`);
-});
+// ✅ Export the app for Vercel (instead of app.listen)
+export default app;

@@ -2,15 +2,12 @@
   "name": "chatbot-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "server.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "openai": "^4.0.0"
+  },
   "scripts": {
     "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^5.1.0",
-    "cors": "^2.8.5",
-    "body-parser": "^2.2.0",
-    "dotenv": "^17.2.3",
-    "openai": "^6.7.0"
   }
 }
