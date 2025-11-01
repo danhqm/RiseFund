@@ -1,63 +1,76 @@
-import { generateAPIUrl } from '@/utils/utils';
-import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
-import { fetch as expoFetch } from 'expo/fetch';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function App() {
+export default function Chatbot() {
+  const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
   const [input, setInput] = useState('');
-  const { messages, error, sendMessage } = useChat({
-    transport: new DefaultChatTransport({
-      fetch: expoFetch as unknown as typeof globalThis.fetch,
-      api: generateAPIUrl('/api/chat'),
-    }),
-    onError: error => console.error(error, 'ERROR'),
-  });
+  const [loading, setLoading] = useState(false);
 
-  if (error) return <Text>{error.message}</Text>;
+  const sendMessage = async () => {
+    console.log("📡 Sending to:", process.env.EXPO_PUBLIC_API_URL);
+    if (!input.trim()) return;
+
+    const userMessage = { role: 'user', text: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setLoading(true);
+
+    try {
+      const response = await fetch(process.env.EXPO_PUBLIC_API_URL!, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: input }),
+      });
+
+      const data = await response.json();
+
+      const botMessage = { role: 'assistant', text: data.text };
+      setMessages(prev => [...prev, botMessage]);
+    } catch (error) {
+      console.error('Error:', error);
+      const errorMessage = { role: 'assistant', text: '⚠️ Server not reachable.' };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <SafeAreaView style={{ height: '100%' }}>
-      <View
-        style={{
-          height: '95%',
-          display: 'flex',
-          flexDirection: 'column',
-          paddingHorizontal: 8,
-        }}
-      >
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <View style={{ flex: 1, padding: 12 }}>
         <ScrollView style={{ flex: 1 }}>
-          {messages.map(m => (
-            <View key={m.id} style={{ marginVertical: 8 }}>
-              <View>
-                <Text style={{ fontWeight: 700 }}>{m.role}</Text>
-                {m.parts.map((part, i) => {
-                  switch (part.type) {
-                    case 'text':
-                      return <Text key={`${m.id}-${i}`}>{part.text}</Text>;
-                  }
-                })}
-              </View>
+          {messages.map((msg, i) => (
+            <View
+              key={i}
+              style={{
+                marginVertical: 6,
+                alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                backgroundColor: msg.role === 'user' ? '#DCF8C6' : '#FFF',
+                borderRadius: 10,
+                padding: 8,
+                maxWidth: '80%',
+              }}
+            >
+              <Text>{msg.text}</Text>
             </View>
           ))}
+          {loading && <Text>🤖 Thinking...</Text>}
         </ScrollView>
 
-        <View style={{ marginTop: 8 }}>
-          <TextInput
-            style={{ backgroundColor: 'white', padding: 8 }}
-            placeholder="Say something..."
-            value={input}
-            onChange={e => setInput(e.nativeEvent.text)}
-            onSubmitEditing={e => {
-              e.preventDefault();
-              sendMessage({ text: input });
-              setInput('');
-            }}
-            autoFocus={true}
-          />
-        </View>
+        <TextInput
+          style={{
+            backgroundColor: 'white',
+            padding: 12,
+            borderRadius: 8,
+            marginTop: 8,
+          }}
+          placeholder="Type a message..."
+          value={input}
+          onChangeText={setInput}
+          onSubmitEditing={sendMessage}
+          returnKeyType="send"
+        />
       </View>
     </SafeAreaView>
   );

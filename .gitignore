@@ -33,6 +33,7 @@ yarn-error.*
 # local env files
 .env*.local
 .env
+node_modules
 
 # typescript
 *.tsbuildinfo
@@ -42,3 +43,5 @@ app-example
 # generated native folders
 /ios
 /android
+
+.vercel
