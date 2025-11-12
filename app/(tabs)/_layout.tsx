@@ -1,41 +1,34 @@
-import { IconSymbol } from '@/components/ui/icon-symbol'; // keep this if you’re using it
-import { Tabs } from 'expo-router';
-import React from 'react';
+// app/(tabs)/_layout.tsx
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router";
 
-export default function TabLayout() {
+export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#007AFF', // blue for active tab
-        tabBarInactiveTintColor: '#999',  // gray for inactive tab
         headerShown: false,
+        tabBarActiveTintColor: "#00D09E",
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="house.fill" color={color} />
-          ),
+          title: "Home",
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="edufinance"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="paperplane.fill" color={color} />
-          ),
+          title: "EduFinance",
+          tabBarIcon: ({ color, size }) => <Ionicons name="book" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="chatbot"
         options={{
-          title: 'ChatBot',
-          tabBarIcon: ({ color }) => (
-            <IconSymbol size={28} name="gear.circle.fill" color={color} />
-          ),
+          title: "Chatbot",
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" color={color} size={size} />,
         }}
       />
     </Tabs>
