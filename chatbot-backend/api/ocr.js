@@ -1,20 +1,23 @@
 import express from "express";
 import OpenAI from "openai";
-import { supabase } from "../utils/supabase.js"; // your supabase client with service key
+import { supabase } from "../utils/supabase.js"; // service key client
 
 const router = express.Router();
 
 router.post("/ocr", async (req, res) => {
+  console.log("🚀 Received request body:", req.body);
+
+  const { imageBase64, userId } = req.body;
+
+  if (!imageBase64 || !userId) {
+    return res.status(400).json({ success: false, error: "Missing imageBase64 or userId" });
+  }
+
+  // Step 1: Upload image to Supabase
+  let imageUrl;
   try {
-    const { imageBase64, userId } = req.body;
+    console.log("📤 Uploading image to Supabase...");
 
-    if (!imageBase64 || !userId) {
-      return res.status(400).json({ success: false, error: "Missing imageBase64 or userId" });
-    }
-
-    // -------------------------------
-    // 1️⃣ Upload image to Supabase bucket
-    // -------------------------------
     const fileName = `receipt-${Date.now()}.jpg`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -24,21 +27,26 @@ router.post("/ocr", async (req, res) => {
         upsert: true,
       });
 
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      return res.status(500).json({ success: false, error: uploadError.message });
-    }
+    if (uploadError) throw uploadError;
 
-    const imageUrl = supabase.storage.from("receipts").getPublicUrl(fileName).publicUrl;
+    imageUrl = supabase.storage.from("receipts").getPublicUrl(fileName).publicUrl;
 
-    // -------------------------------
-    // 2️⃣ Send image to OpenAI for analysis
-    // -------------------------------
+    console.log("✅ Image uploaded:", imageUrl);
+  } catch (err) {
+    console.error("❌ Supabase upload error:", err);
+    return res.status(500).json({ success: false, error: "Supabase upload failed" });
+  }
+
+  // Step 2: Call OpenAI to extract receipt data
+  let receiptData;
+  try {
+    console.log("🤖 Sending image to OpenAI for analysis...");
+
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const prompt = `
 Extract the receipt data from this image.
-Return the result as JSON like:
+Return as JSON:
 {
   "merchant_name": "...",
   "total_amount": ...,
@@ -61,19 +69,20 @@ Return the result as JSON like:
     });
 
     const outputText = response.output_text;
+    console.log("📝 OpenAI output:", outputText);
 
-    let receiptData;
-    try {
-      receiptData = JSON.parse(outputText);
-    } catch (err) {
-      console.error("JSON parse error:", err);
-      return res.status(500).json({ success: false, error: "Failed to parse OpenAI response" });
-    }
+    receiptData = JSON.parse(outputText);
+  } catch (err) {
+    console.error("❌ OpenAI extraction error:", err);
+    return res.status(500).json({ success: false, error: "Failed to extract receipt data" });
+  }
 
-    // -------------------------------
-    // 3️⃣ Insert extracted data into Supabase
-    // -------------------------------
-    const { data: savedReceipt, error: insertError } = await supabase
+  // Step 3: Insert into Supabase receipts table
+  let savedReceipt;
+  try {
+    console.log("💾 Inserting receipt into Supabase table...");
+
+    const { data, error: insertError } = await supabase
       .from("receipts")
       .insert([
         {
@@ -88,16 +97,17 @@ Return the result as JSON like:
       .select()
       .single();
 
-    if (insertError) {
-      console.error("Insert error:", insertError);
-      return res.status(500).json({ success: false, error: insertError.message });
-    }
+    if (insertError) throw insertError;
 
-    return res.json({ success: true, data: savedReceipt });
+    savedReceipt = data;
+    console.log("✅ Receipt saved:", savedReceipt);
   } catch (err) {
-    console.error("OCR error:", err);
-    return res.status(500).json({ success: false, error: err.message });
+    console.error("❌ Supabase insert error:", err);
+    return res.status(500).json({ success: false, error: "Failed to save receipt" });
   }
+
+  // Step 4: Return result
+  return res.json({ success: true, data: savedReceipt });
 });
 
 export default router;
