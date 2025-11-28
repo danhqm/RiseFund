@@ -10,16 +10,16 @@ export default function ReceiptScanner() {
   const [receiptData, setReceiptData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Dummy user ID for testing
+  // For now, use dummy user ID; replace with logged-in user ID later
   const dummyUserId = "11111111-1111-1111-1111-111111111111";
 
-  // Pick image from library
+  // Pick an image from the library
   const pickImage = async () => {
     setError(null);
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       base64: true,
-      quality: 0.8,
+      quality: 0.5, // smaller size to avoid serverless limits
     });
 
     if (!result.canceled && result.assets[0].base64) {
@@ -30,11 +30,11 @@ export default function ReceiptScanner() {
 
   // Send image to OCR API
   const scanReceipt = async (base64: string) => {
-    try {
-      setLoading(true);
-      setReceiptData(null);
-      setError(null);
+    setLoading(true);
+    setReceiptData(null);
+    setError(null);
 
+    try {
       const res = await fetch(OCR_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,7 +44,7 @@ export default function ReceiptScanner() {
         }),
       });
 
-      // Handle non-JSON responses
+      // Parse response safely
       const text = await res.text();
       let data;
       try {
@@ -61,19 +61,14 @@ export default function ReceiptScanner() {
         return;
       }
 
-      // Update receipt data
       setReceiptData(data.data);
     } catch (err: unknown) {
       console.error("Fetch error:", err);
-
-      if (err instanceof Error) {
-        setError(err.message); // now TypeScript knows 'message' exists
-      } else {
-        setError(String(err)); // fallback for non-Error values
-      }
+      if (err instanceof Error) setError(err.message);
+      else setError(String(err));
     } finally {
-        setLoading(false);
-      }
+      setLoading(false);
+    }
   };
 
   return (
@@ -114,7 +109,7 @@ export default function ReceiptScanner() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
+    padding: 100,
   },
   heading: {
     fontWeight: "bold",

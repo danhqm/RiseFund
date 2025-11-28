@@ -1,6 +1,6 @@
 import express from "express";
 import OpenAI from "openai";
-import { supabase } from "../utils/supabase.js"; // service key client
+import { supabase } from "../utils/supabase.js"; // using service key
 
 const router = express.Router();
 
@@ -17,7 +17,6 @@ router.post("/ocr", async (req, res) => {
   let imageUrl;
   try {
     console.log("📤 Uploading image to Supabase...");
-
     const fileName = `receipt-${Date.now()}.jpg`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -30,7 +29,6 @@ router.post("/ocr", async (req, res) => {
     if (uploadError) throw uploadError;
 
     imageUrl = supabase.storage.from("receipts").getPublicUrl(fileName).publicUrl;
-
     console.log("✅ Image uploaded:", imageUrl);
   } catch (err) {
     console.error("❌ Supabase upload error:", err);
@@ -41,12 +39,11 @@ router.post("/ocr", async (req, res) => {
   let receiptData;
   try {
     console.log("🤖 Sending image to OpenAI for analysis...");
-
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const prompt = `
 Extract the receipt data from this image.
-Return as JSON:
+Return JSON:
 {
   "merchant_name": "...",
   "total_amount": ...,
@@ -81,7 +78,6 @@ Return as JSON:
   let savedReceipt;
   try {
     console.log("💾 Inserting receipt into Supabase table...");
-
     const { data, error: insertError } = await supabase
       .from("receipts")
       .insert([
@@ -98,7 +94,6 @@ Return as JSON:
       .single();
 
     if (insertError) throw insertError;
-
     savedReceipt = data;
     console.log("✅ Receipt saved:", savedReceipt);
   } catch (err) {
