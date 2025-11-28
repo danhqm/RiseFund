@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
-import { ActivityIndicator, Button, Image, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Button, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const OCR_API_URL = "https://rise-fund-6r5s.vercel.app/api/ocr";
 
@@ -8,9 +8,14 @@ export default function ReceiptScanner() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
-  const dummyUserId = "11111111-1111-1111-1111-111111111111"; // replace with actual user id
+  const [error, setError] = useState<string | null>(null);
 
+  // Dummy user ID for testing
+  const dummyUserId = "11111111-1111-1111-1111-111111111111";
+
+  // Pick image from library
   const pickImage = async () => {
+    setError(null);
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       base64: true,
@@ -19,54 +24,73 @@ export default function ReceiptScanner() {
 
     if (!result.canceled && result.assets[0].base64) {
       setImageUri(result.assets[0].uri);
-      scanReceipt(result.assets[0].base64);
+      await scanReceipt(result.assets[0].base64);
     }
   };
 
+  // Send image to OCR API
   const scanReceipt = async (base64: string) => {
     try {
       setLoading(true);
+      setReceiptData(null);
+      setError(null);
 
       const res = await fetch(OCR_API_URL, {
-        method: "POST", // must be POST
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, userId: dummyUserId }),
+        body: JSON.stringify({
+          imageBase64: base64,
+          userId: dummyUserId,
+        }),
       });
 
-      // Check HTTP status first
-      if (!res.ok) {
-        const text = await res.text(); // in case of HTML error page
-        console.error("OCR fetch failed:", text);
-        setLoading(false);
+      // Handle non-JSON responses
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.error("Response is not valid JSON:", text);
+        setError("Invalid response from server");
         return;
       }
-
-      const data = await res.json(); // parse JSON
 
       if (!data.success) {
-        console.error("OCR returned error:", data.error);
-        setLoading(false);
+        console.error("OCR fetch failed:", data.error);
+        setError(data.error || "OCR failed");
         return;
       }
 
+      // Update receipt data
       setReceiptData(data.data);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Fetch error:", err);
+
+      if (err instanceof Error) {
+        setError(err.message); // now TypeScript knows 'message' exists
+      } else {
+        setError(String(err)); // fallback for non-Error values
+      }
     } finally {
-      setLoading(false);
-    }
+        setLoading(false);
+      }
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 100 }}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Button title="Pick Receipt Image" onPress={pickImage} />
 
-      {loading && <ActivityIndicator size="large" color="#0000ff" />}
+      {loading && <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }} />}
 
-      {imageUri && <Image source={{ uri: imageUri }} style={{ width: 200, height: 200, marginTop: 20 }} />}
+      {imageUri && (
+        <Image source={{ uri: imageUri }} style={{ width: 200, height: 200, marginTop: 20 }} />
+      )}
+
+      {error && <Text style={styles.error}>{error}</Text>}
 
       {receiptData && (
         <View style={{ marginTop: 20 }}>
+          <Text style={styles.heading}>Receipt Details:</Text>
           <Text>Merchant: {receiptData.merchant_name}</Text>
           <Text>Total: {receiptData.total_amount}</Text>
           <Text>Date: {receiptData.receipt_date}</Text>
@@ -76,8 +100,28 @@ export default function ReceiptScanner() {
               {item.name} - {item.price}
             </Text>
           ))}
+          {receiptData.image_url && (
+            <Image
+              source={{ uri: receiptData.image_url }}
+              style={{ width: 200, height: 200, marginTop: 10 }}
+            />
+          )}
         </View>
       )}
     </ScrollView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+  },
+  heading: {
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  error: {
+    color: "red",
+    marginTop: 20,
+  },
+});
