@@ -2,7 +2,7 @@
   "expo": {
     "extra": {
       "SUPABASE_URL":"https://qorqcjjuomgmclyghbnp.supabase.co",
-      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvcnFjamp1b21nbWNseWdoYm5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNTMzNzMsImV4cCI6MjA3OTgyOTM3M30.hRQ71Va1pLMBkjP2N42MlSlGOscpYhZNKrpHl-AhSA8",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvcnFjamp1b21nbWNseWdoYm5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQyNTMzNzMsImV4cCI6MjA3OTgyOTM3M30.hRQ71Va1pLMBkjP2N42MlSlGOscpYhZNKrpHl-AhSA8"
     },
     "name": "RiseFund",
     "slug": "RiseFund",
