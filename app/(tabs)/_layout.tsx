@@ -25,10 +25,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="receiptscanner"
+        options={{
+          title: "Receipt",
+          tabBarIcon: ({ color, size }) => <Ionicons name="receipt" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
         name="chatbot"
         options={{
           title: "Chatbot",
           tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, size }) => <Ionicons name="person" color={color} size={size} />,
         }}
       />
     </Tabs>
