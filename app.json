@@ -1,9 +1,5 @@
 {
   "expo": {
-    "extra": {
-      "SUPABASE_URL": "https://qorqcjjuomgmclyghbnp.supabase.co",
-      "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvcnFjamp1b21nbWNseWdoYm5wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDI1MzM3MywiZXhwIjoyMDc5ODI5MzczfQ.mpAOYQvmzf0l-t4jBC1qDu0WzmbPeYriBRM4coc5FaU"
-    },
     "name": "RiseFund",
     "slug": "RiseFund",
     "version": "1.0.0",
