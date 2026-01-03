@@ -3,6 +3,7 @@ import { Poppins_400Regular, Poppins_700Bold, useFonts } from '@expo-google-font
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
+import "react-native-url-polyfill/auto";
 
 
 export default function RootLayout() {

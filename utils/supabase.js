@@ -1,10 +1,18 @@
+// utils/supabase.js
 import { createClient } from "@supabase/supabase-js";
+import Constants from "expo-constants";
+import "react-native-url-polyfill/auto";
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const extra =
+  Constants.expoConfig?.extra ??
+  Constants.manifest?.extra ??
+  {};
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error("Missing Supabase environment variables!");
+const supabaseUrl = extra.supabaseUrl;
+const supabaseServiceRoleKey = extra.supabaseServiceRoleKey;
+
+if (!supabaseUrl || !supabaseServiceRoleKey) {
+  throw new Error("Supabase environment variables not loaded");
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);

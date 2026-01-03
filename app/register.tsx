@@ -2,6 +2,7 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { supabase } from "../utils/supabase";
 
 export default function Register() {
   const router = useRouter();
@@ -14,22 +15,38 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [monthlyIncome, setMonthlyIncome] = useState("");
 
-  const handleSignUp = () => {
-    console.log({ username, email, mobile, dob, password, confirmPassword, monthlyIncome });
+  const handleRegister = async () => {
+  if (!username || !email || !password) {
+    Alert.alert("Error", "Please fill all fields");
+    return;
+  }
 
-    // Show popup
-    Alert.alert(
-        "Success",
-        "Account created successfully!",
-        [
-        {
-            text: "OK",
-            onPress: () => router.push("/landing"), // navigate after user clicks OK
-        },
-        ],
-        { cancelable: false }
-    );
-  };
+  // 1️⃣ Create auth user
+  const { data, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (authError || !data || !data.user) {
+    Alert.alert("Error", authError?.message || "Failed to create user");
+    return;
+  }
+
+  // 2️⃣ Insert profile data
+  const { error: profileError } = await supabase.from("users").insert({
+    user_id: data.user.id, // 🔥 REQUIRED (matches auth.uid())
+    username,
+    email,
+  });
+
+  if (profileError) {
+    Alert.alert("Error", profileError.message);
+  } else {
+    Alert.alert("Success", "Account created successfully", [
+      { text: "OK", onPress: () => router.push("/landing") },
+    ]);
+  }
+};
 
   return (
     <KeyboardAvoidingView
@@ -115,7 +132,7 @@ export default function Register() {
                 By continuing, you agree to Terms of Use and Privacy Policy <Text style={{ fontWeight: "700" }}>Log In</Text>
             </Text>
 
-            <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
+            <TouchableOpacity style={styles.signUpButton} onPress={handleRegister}>
                 <Text style={styles.signUpText}>Sign Up</Text>
             </TouchableOpacity>
 
