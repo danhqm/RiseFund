@@ -1,38 +1,29 @@
 // app/_layout.tsx
+import { Poppins_400Regular, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
-import { Animated } from "react-native";
-import SplashScreen from "./splashscreen"; // 👈 import directly
+import { ActivityIndicator, View } from "react-native";
 
 export default function RootLayout() {
-  const [showSplash, setShowSplash] = useState(true);
-  const fadeAnim = new Animated.Value(1); // for fade-out animation
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_700Bold,
+  });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }).start(() => setShowSplash(false));
-    }, 3000); // show splash for 2s
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (showSplash) {
+  // Show loading spinner until fonts are loaded
+  if (!fontsLoaded) {
     return (
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        <SplashScreen />
-      </Animated.View>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#00D09E" />
+      </View>
     );
   }
 
-  // once splash is hidden, show main app stack
   return (
     <>
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="splashscreen" />
+        <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style="light" />

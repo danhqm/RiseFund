@@ -1,13 +1,7 @@
 // app/splashscreen.tsx
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import {
-  ActivityIndicator,
-  Animated,
-  Image,
-  StyleSheet,
-  Text
-} from "react-native";
+import { ActivityIndicator, Animated, Image, StyleSheet, Text } from "react-native";
 
 export default function SplashScreen() {
   const router = useRouter();
@@ -23,7 +17,7 @@ export default function SplashScreen() {
         useNativeDriver: true,
       }).start(() => {
         // Step 3: Navigate after fade completes
-        router.replace("/");
+        router.replace("/onboarding");
       });
     }, 5000);
 
