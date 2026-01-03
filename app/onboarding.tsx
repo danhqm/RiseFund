@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Dimensions, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -20,6 +21,7 @@ const onboardingData = [
 ];
 
 export default function Onboarding() {
+    const router = useRouter();
   return (
     <FlatList
       data={onboardingData}
@@ -58,7 +60,7 @@ export default function Onboarding() {
 
             {/* Continue button only on second slide */}
             {index === 1 && (
-              <TouchableOpacity style={styles.continueButton} onPress={() => alert("Continue pressed!")}>
+              <TouchableOpacity style={styles.continueButton} onPress={() => router.push("/landing")}>
                 <Text style={styles.continueText}>Continue</Text>
               </TouchableOpacity>
             )}
