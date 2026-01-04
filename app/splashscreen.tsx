@@ -19,7 +19,7 @@ export default function SplashScreen() {
         // Step 3: Navigate after fade completes
         router.replace("/onboarding");
       });
-    }, 5000);
+    }, 2000);
 
     return () => clearTimeout(timer);
   }, []);

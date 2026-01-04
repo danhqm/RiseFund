@@ -20,7 +20,7 @@ export default async function handler(req, res) {
       model: "gpt-3.5-turbo",
       temperature: 0.8,
       messages: [
-        { role: "system", content: "You are a friendly financial mentor." },
+        { role: "system", content: "Your name is Fin the helpful Financial mentor. You answer questions about your finances and give the most suitable advice according to the user." },
         ...chatHistory,
       ],
     });

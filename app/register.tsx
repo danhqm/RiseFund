@@ -21,31 +21,32 @@ export default function Register() {
     return;
   }
 
-  // 1️⃣ Create auth user
   const { data, error: authError } = await supabase.auth.signUp({
     email,
     password,
   });
 
-  if (authError || !data || !data.user) {
+  if (authError || !data?.user) {
     Alert.alert("Error", authError?.message || "Failed to create user");
     return;
   }
 
-  // 2️⃣ Insert profile data
   const { error: profileError } = await supabase.from("users").insert({
-    user_id: data.user.id, // 🔥 REQUIRED (matches auth.uid())
+    user_id: data.user.id,
     username,
     email,
   });
 
   if (profileError) {
     Alert.alert("Error", profileError.message);
-  } else {
-    Alert.alert("Success", "Account created successfully", [
-      { text: "OK", onPress: () => router.push("/landing") },
-    ]);
+    return;
   }
+
+  Alert.alert(
+    "Verify your email",
+    "We’ve sent a verification link to your email. Please confirm it before logging in.",
+    [{ text: "OK", onPress: () => router.replace("/login") }]
+  );
 };
 
   return (
@@ -64,7 +65,7 @@ export default function Register() {
             <TextInput
                 style={styles.input}
                 placeholder="Enter your username"
-                placeholderTextColor={"#0E3E3E"}
+                placeholderTextColor={"#9DBDB0"}
                 value={username}
                 onChangeText={setUsername}
             />
@@ -73,7 +74,7 @@ export default function Register() {
             <TextInput
                 style={styles.input}
                 placeholder="Enter your email"
-                placeholderTextColor={"#0E3E3E"}
+                placeholderTextColor={"#9DBDB0"}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -83,7 +84,7 @@ export default function Register() {
             <TextInput
                 style={styles.input}
                 placeholder="Enter your mobile number"
-                placeholderTextColor={"#0E3E3E"}
+                placeholderTextColor={"#9DBDB0"}
                 value={mobile}
                 onChangeText={setMobile}
                 keyboardType="numeric"
@@ -93,7 +94,7 @@ export default function Register() {
             <TextInput
                 style={styles.input}
                 placeholder="DD/MM/YYYY"
-                placeholderTextColor={"#0E3E3E"}
+                placeholderTextColor={"#9DBDB0"}
                 value={dob}
                 onChangeText={setDob}
             />
@@ -102,7 +103,7 @@ export default function Register() {
             <TextInput
                 style={styles.input}
                 placeholder="Enter password"
-                placeholderTextColor={"#0E3E3E"}
+                placeholderTextColor={"#9DBDB0"}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -112,7 +113,7 @@ export default function Register() {
             <TextInput
                 style={styles.input}
                 placeholder="Confirm password"
-                placeholderTextColor={"#0E3E3E"}
+                placeholderTextColor={"#9DBDB0"}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
@@ -122,7 +123,7 @@ export default function Register() {
             <TextInput
                 style={styles.input}
                 placeholder="Enter your monthly income"
-                placeholderTextColor={"#0E3E3E"}
+                placeholderTextColor={"#9DBDB0"}
                 value={monthlyIncome}
                 onChangeText={setMonthlyIncome}
                 keyboardType="numeric"
@@ -138,7 +139,7 @@ export default function Register() {
 
             <TouchableOpacity onPress={() => router.push("/landing")}>
                 <Text style={styles.loginText}>
-                Already have an account? <Text style={{ fontWeight: "700" }}>Log In</Text>
+                Already have an account? <Text style={{ fontWeight: "700" }}></Text><Text style={styles.footerLink}>Log In</Text>
                 </Text>
             </TouchableOpacity>
             </ScrollView>
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: "#DFF7E2",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: "#0E3E3E",
     borderRadius: 12,
     paddingHorizontal: 15,
     fontFamily: "Poppins_400Regular",
@@ -228,5 +229,9 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins_400Regular",
     color: "#0E3E3E",
     fontSize: 14,
+  },
+  footerLink: {
+    color: "#00D09E",
+    fontFamily: "Poppins_700Bold",
   },
 });

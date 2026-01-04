@@ -33,7 +33,7 @@
           "image": "./assets/images/RiseFund-Light.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0E3E3E",
           "dark": {
             "backgroundColor": "#000000"
           }

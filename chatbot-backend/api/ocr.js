@@ -42,15 +42,15 @@ router.post("/ocr", async (req, res) => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const prompt = `
-Extract the receipt data from this image.
-Return JSON:
-{
-  "merchant_name": "...",
-  "total_amount": ...,
-  "receipt_date": "...",
-  "items": [{"name": "...", "price": ...}]
-}
-`;
+    Extract the receipt data from this image.
+    Return JSON:
+    {
+      "merchant_name": "...",
+      "total_amount": ...,
+      "receipt_date": "...",
+      "items": [{"name": "...", "price": ...}]
+    }
+    `;
 
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
