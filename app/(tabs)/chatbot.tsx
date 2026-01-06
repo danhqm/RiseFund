@@ -1,16 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import React, { useRef, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-
 export default function Chatbot() {
+  const tabBarHeight = useBottomTabBarHeight();
   const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const sendMessage = async () => {
-    console.log("📡 Sending to:", process.env.EXPO_PUBLIC_API_URL);
     if (!input.trim()) return;
 
     const userMessage = { role: 'user', text: input };
@@ -26,82 +27,85 @@ export default function Chatbot() {
       });
 
       const data = await response.json();
-
       const botMessage = { role: 'assistant', text: data.text };
       setMessages(prev => [...prev, botMessage]);
     } catch (error) {
-      console.error('Error:', error);
       const errorMessage = { role: 'assistant', text: '⚠️ Server not reachable.' };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
+
+      // Scroll to bottom after bot response
+      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Fin title */}
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerText}>Fin</Text>
+        <TouchableOpacity>
+          <Ionicons name="arrow-back" size={24} color="#093030" />
+        </TouchableOpacity>
+      
+        <Text style={styles.headerTitle}>Fin</Text>
+      
+        <TouchableOpacity>
+          <Ionicons name="notifications-outline" size={22} color="#093030" />
+        </TouchableOpacity>
       </View>
 
-      {/* Card */}
+      {/* Chat Card */}
       <KeyboardAvoidingView
-        style={styles.cardContainer}
+        style={styles.keyboardAvoiding}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 80}
+        keyboardVerticalOffset={tabBarHeight + 20}
       >
         <View style={styles.card}>
-          {/* Header */}
+          {/* Card header */}
           <View style={styles.cardHeader}>
-            <Image
-              source={require("../../assets/images/Fin.png")}
-              style={styles.icon}
-            />
+            <Image source={require("../../assets/images/Fin.png")} style={styles.icon} />
             <View>
-              <Text style={styles.cardTitle}>Seek advice From Fin</Text>
-              <Text style={styles.cardDescription}>
-                You can always ask an opinion from Fin!
-              </Text>
+              <Text style={styles.cardTitle}>Seek Advice From Fin</Text>
+              <Text style={styles.cardDescription}>You can always ask an opinion from Fin!</Text>
             </View>
           </View>
 
           {/* Chat messages */}
-          <View style={styles.chatWrapper}>
-            <ScrollView
-              style={styles.chatContainer}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              keyboardShouldPersistTaps="handled"
-            >
-              {messages.map((msg, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.message,
-                    msg.role === "user" ? styles.userMessage : styles.finMessage,
-                  ]}
-                >
-                  <Text style={styles.messageText}>{msg.text}</Text>
-                </View>
-              ))}
-              {loading && <Text style={styles.loadingText}>🤖 Thinking...</Text>}
-            </ScrollView>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.chatContainer}
+            contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {messages.map((msg, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.message,
+                  msg.role === "user" ? styles.userMessage : styles.finMessage,
+                ]}
+              >
+                <Text style={styles.messageText}>{msg.text}</Text>
+              </View>
+            ))}
+            {loading && <Text style={styles.loadingText}>🤖 Thinking...</Text>}
+          </ScrollView>
 
-            {/* Input */}
-            <View style={styles.inputContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="Type a message..."
-                placeholderTextColor="#666"
-                value={input}
-                onChangeText={setInput}
-                onSubmitEditing={sendMessage}
-                returnKeyType="send"
-              />
-              <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-                <Ionicons name="send" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
+          {/* Input */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              placeholderTextColor="#666"
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={sendMessage}
+              returnKeyType="send"
+            />
+            <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
+              <Ionicons name="send" size={24} color="#fff" />
+            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -109,34 +113,40 @@ export default function Chatbot() {
   );
 }
 
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#00D09E",
   },
   header: {
-    height: 120,
-    justifyContent: "center",
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 25,
   },
-  headerText: {
-    color: "#0E3E3E",
-    fontSize: 28,
-    fontWeight: "bold",
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    color: "#093030",
+    lineHeight: 24,
   },
-  cardContainer: {
+  keyboardAvoiding: {
     flex: 1,
   },
   card: {
-    top: 35,
     flex: 1,
     backgroundColor: "#fff",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     padding: 20,
-    marginTop: -40, // overlap the green header
-    paddingBottom: 20,
+    marginTop: 97, // push card below green header
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   cardHeader: {
     flexDirection: "row",
@@ -158,9 +168,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#093030",
     marginTop: 4,
-  },
-  chatWrapper: {
-    flex: 1, // makes messages area grow and pushes input to bottom
   },
   chatContainer: {
     flex: 1,
@@ -189,8 +196,9 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: "row",
-    marginTop: 8,
     alignItems: "center",
+    marginTop: 16,
+    paddingBottom: 30,
   },
   input: {
     flex: 1,
@@ -206,4 +214,3 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 });
-

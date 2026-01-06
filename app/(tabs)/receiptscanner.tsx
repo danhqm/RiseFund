@@ -1,6 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
-import { ActivityIndicator, Button, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const OCR_API_URL = "https://rise-fund-6r5s.vercel.app/api/ocr";
 
@@ -72,51 +74,124 @@ export default function ReceiptScanner() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Button title="Pick Receipt Image" onPress={pickImage} />
+    <SafeAreaView style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity>
+          <Ionicons name="arrow-back" size={24} color="#093030" />
+        </TouchableOpacity>
 
-      {loading && <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }} />}
+        <Text style={styles.headerTitle}>Receipt{"\n"}Scanner</Text>
 
-      {imageUri && (
-        <Image source={{ uri: imageUri }} style={{ width: 200, height: 200, marginTop: 20 }} />
-      )}
+        <TouchableOpacity>
+          <Ionicons name="notifications-outline" size={22} color="#093030" />
+        </TouchableOpacity>
+      </View>
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      {/* Main Card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>
+          Upload A Receipt To Automatically{"\n"}Track Your Spending
+        </Text>
 
-      {receiptData && (
-        <View style={{ marginTop: 20 }}>
-          <Text style={styles.heading}>Receipt Details:</Text>
-          <Text>Merchant: {receiptData.merchant_name}</Text>
-          <Text>Total: {receiptData.total_amount}</Text>
-          <Text>Date: {receiptData.receipt_date}</Text>
-          <Text>Items:</Text>
-          {receiptData.items.map((item: any, index: number) => (
-            <Text key={index}>
-              {item.name} - {item.price}
-            </Text>
-          ))}
-          {receiptData.image_url && (
-            <Image
-              source={{ uri: receiptData.image_url }}
-              style={{ width: 200, height: 200, marginTop: 10 }}
-            />
-          )}
+        {/* Dummy receipt image */}
+        <View style={styles.receiptPreview}>
+          <Image
+            source={require("../../assets/images/receipt-check.png")} 
+            style={styles.receiptImage}
+            resizeMode="contain"
+          />
         </View>
-      )}
-    </ScrollView>
+
+        <Text style={styles.helperText}>Clear image works the best.</Text>
+
+        {/* Scan Button */}
+        <TouchableOpacity style={styles.scanButton}>
+          <Ionicons name="scan-outline" size={20} color="#093030" />
+          <Text style={styles.scanButtonText}>Scan Receipt</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 100,
+    flex: 1,
+    backgroundColor: "#00D09E",
   },
-  heading: {
-    fontWeight: "bold",
-    marginBottom: 10,
+
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 25,
   },
-  error: {
-    color: "red",
-    marginTop: 20,
+
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    color: "#093030",
+    lineHeight: 22,
+  },
+
+  card: {
+    top: 35,
+    flex: 1,
+    backgroundColor: "#fff",
+    marginTop: 50,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    padding: 24,
+    alignItems: "center",
+  },
+
+  cardTitle: {
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: "600",
+    textAlign: "center",
+    color: "#093030",
+    marginBottom: 70,
+  },
+
+  receiptPreview: {
+    width: 120,
+    height: 160,
+    borderWidth: 1.5,
+    borderColor: "#CDEEE1",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+
+  receiptImage: {
+    width: 80,
+    height: 100,
+  },
+
+  helperText: {
+    fontSize: 13,
+    color: "#093030",
+    marginBottom: 20,
+  },
+
+  scanButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#00D09E",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+
+  scanButtonText: {
+    color: "#093030",
+    fontWeight: "700",
+    fontSize: 14,
   },
 });
