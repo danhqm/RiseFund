@@ -29,6 +29,7 @@ export default function RootLayout() {
         <Stack.Screen name="landing" />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
+        <Stack.Screen name="editprofile" />
         <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style="light" />
