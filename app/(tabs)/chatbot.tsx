@@ -1,73 +1,93 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import React, { useRef, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useRef, useState } from "react";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Chatbot() {
   const tabBarHeight = useBottomTabBarHeight();
   const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage = { role: 'user', text: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    const userMessage = { role: "user", text: input };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
     setLoading(true);
 
     try {
       const response = await fetch(process.env.EXPO_PUBLIC_API_URL!, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: input }),
       });
 
       const data = await response.json();
-      const botMessage = { role: 'assistant', text: data.text };
-      setMessages(prev => [...prev, botMessage]);
+      const botMessage = { role: "assistant", text: data.text };
+      setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
-      const errorMessage = { role: 'assistant', text: '⚠️ Server not reachable.' };
-      setMessages(prev => [...prev, errorMessage]);
+      const errorMessage = {
+        role: "assistant",
+        text: "⚠️ Server not reachable.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setLoading(false);
 
-      // Scroll to bottom after bot response
-      setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(
+        () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+        100
+      );
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Header (same style family as EduFinance) */}
       <View style={styles.header}>
         <TouchableOpacity>
-          <Ionicons name="arrow-back" size={24} color="#093030" />
+          <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
-      
+
         <Text style={styles.headerTitle}>Fin</Text>
-      
+
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={22} color="#093030" />
+          <Ionicons name="notifications-outline" size={22} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
-      {/* Chat Card */}
+      {/* White rounded page + keyboard avoiding */}
       <KeyboardAvoidingView
         style={styles.keyboardAvoiding}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={tabBarHeight + 20}
       >
-        <View style={styles.card}>
-          {/* Card header */}
+        <View style={styles.innerContainer}>
+          {/* Card header inside white page */}
           <View style={styles.cardHeader}>
-            <Image source={require("../../assets/images/Fin.png")} style={styles.icon} />
+            <Image
+              source={require("../../assets/images/Fin.png")}
+              style={styles.icon}
+            />
             <View>
               <Text style={styles.cardTitle}>Seek Advice From Fin</Text>
-              <Text style={styles.cardDescription}>You can always ask an opinion from Fin!</Text>
+              <Text style={styles.cardDescription}>
+                You can always ask an opinion from Fin!
+              </Text>
             </View>
           </View>
 
@@ -75,7 +95,7 @@ export default function Chatbot() {
           <ScrollView
             ref={scrollViewRef}
             style={styles.chatContainer}
-            contentContainerStyle={{ paddingBottom: tabBarHeight + 20 }}
+            contentContainerStyle={{ paddingBottom: tabBarHeight + 80 }}
             keyboardShouldPersistTaps="handled"
           >
             {messages.map((msg, i) => (
@@ -83,17 +103,26 @@ export default function Chatbot() {
                 key={i}
                 style={[
                   styles.message,
-                  msg.role === "user" ? styles.userMessage : styles.finMessage,
+                  msg.role === "user"
+                    ? styles.userMessage
+                    : styles.finMessage,
                 ]}
               >
                 <Text style={styles.messageText}>{msg.text}</Text>
               </View>
             ))}
-            {loading && <Text style={styles.loadingText}>🤖 Thinking...</Text>}
+            {loading && (
+              <Text style={styles.loadingText}>🤖 Thinking...</Text>
+            )}
           </ScrollView>
 
-          {/* Input */}
-          <View style={styles.inputContainer}>
+          {/* Input row */}
+          <View
+            style={[
+              styles.inputContainer,
+              { paddingBottom: tabBarHeight + 10 },
+            ]}
+          >
             <TextInput
               style={styles.input}
               placeholder="Type a message..."
@@ -104,7 +133,7 @@ export default function Chatbot() {
               returnKeyType="send"
             />
             <TouchableOpacity onPress={sendMessage} style={styles.sendButton}>
-              <Ionicons name="send" size={24} color="#fff" />
+              <Ionicons name="send" size={22} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -113,45 +142,46 @@ export default function Chatbot() {
   );
 }
 
+const PRIMARY = "#00D09E";
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#00D09E",
+    backgroundColor: PRIMARY,
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 25,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: "700",
     textAlign: "center",
-    color: "#093030",
+    color: "#ffffff",
     lineHeight: 24,
   },
   keyboardAvoiding: {
     flex: 1,
   },
-  card: {
+
+  innerContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    padding: 20,
-    marginTop: 97, // push card below green header
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
+
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
+    marginLeft: 4,
   },
   icon: {
     width: 50,
@@ -169,6 +199,7 @@ const styles = StyleSheet.create({
     color: "#093030",
     marginTop: 4,
   },
+
   chatContainer: {
     flex: 1,
   },
@@ -180,7 +211,7 @@ const styles = StyleSheet.create({
   },
   userMessage: {
     alignSelf: "flex-end",
-    backgroundColor: "#00D09E",
+    backgroundColor: PRIMARY,
   },
   finMessage: {
     alignSelf: "flex-start",
@@ -193,23 +224,24 @@ const styles = StyleSheet.create({
   loadingText: {
     color: "#093030",
     fontStyle: "italic",
+    marginTop: 4,
   },
+
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 16,
-    paddingBottom: 30,
+    marginTop: 12,
   },
   input: {
     flex: 1,
-    backgroundColor: "#eee",
+    backgroundColor: "#F2F2F2",
     padding: 12,
     borderRadius: 20,
     fontSize: 14,
   },
   sendButton: {
-    backgroundColor: "#00D09E",
-    padding: 12,
+    backgroundColor: PRIMARY,
+    padding: 10,
     borderRadius: 25,
     marginLeft: 8,
   },

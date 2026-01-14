@@ -1,7 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const OCR_API_URL = "https://rise-fund-6r5s.vercel.app/api/ocr";
@@ -12,16 +18,14 @@ export default function ReceiptScanner() {
   const [receiptData, setReceiptData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // For now, use dummy user ID; replace with logged-in user ID later
   const dummyUserId = "11111111-1111-1111-1111-111111111111";
 
-  // Pick an image from the library
   const pickImage = async () => {
     setError(null);
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       base64: true,
-      quality: 0.5, // smaller size to avoid serverless limits
+      quality: 0.5,
     });
 
     if (!result.canceled && result.assets[0].base64) {
@@ -30,7 +34,6 @@ export default function ReceiptScanner() {
     }
   };
 
-  // Send image to OCR API
   const scanReceipt = async (base64: string) => {
     setLoading(true);
     setReceiptData(null);
@@ -46,7 +49,6 @@ export default function ReceiptScanner() {
         }),
       });
 
-      // Parse response safely
       const text = await res.text();
       let data;
       try {
@@ -75,50 +77,67 @@ export default function ReceiptScanner() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Header (same style as EduFinance) */}
       <View style={styles.header}>
         <TouchableOpacity>
-          <Ionicons name="arrow-back" size={24} color="#093030" />
+          <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Receipt{"\n"}Scanner</Text>
+        <Text style={styles.headerTitle}>
+          Receipt{"\n"}Scanner
+        </Text>
 
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={22} color="#093030" />
+          <Ionicons name="notifications-outline" size={22} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
-      {/* Main Card */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>
-          Upload A Receipt To Automatically{"\n"}Track Your Spending
-        </Text>
+      {/* White rounded page (same height/feel as EduFinance) */}
+      <View style={styles.innerContainer}>
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitle}>
+            Upload A Receipt To Automatically{"\n"}Track Your Spending
+          </Text>
 
-        {/* Dummy receipt image */}
-        <View style={styles.receiptPreview}>
-          <Image
-            source={require("../../assets/images/receipt-check.png")} 
-            style={styles.receiptImage}
-            resizeMode="contain"
-          />
+          {/* Dummy / preview receipt image */}
+          <View style={styles.receiptPreview}>
+            <Image
+              source={require("../../assets/images/receipt-check.png")}
+              style={styles.receiptImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          <Text style={styles.helperText}>Clear image works the best.</Text>
+
+          {/* Scan button (logic same as before; hook pickImage if/when you want) */}
+          <TouchableOpacity
+            style={styles.scanButton}
+            // onPress={pickImage} // <- uncomment when you’re ready to hook it up
+          >
+            <Ionicons name="scan-outline" size={20} color="#093030" />
+            <Text style={styles.scanButtonText}>
+              {loading ? "Scanning..." : "Scan Receipt"}
+            </Text>
+          </TouchableOpacity>
+
+          {error && (
+            <Text style={styles.errorText}>
+              {error}
+            </Text>
+          )}
         </View>
-
-        <Text style={styles.helperText}>Clear image works the best.</Text>
-
-        {/* Scan Button */}
-        <TouchableOpacity style={styles.scanButton}>
-          <Ionicons name="scan-outline" size={20} color="#093030" />
-          <Text style={styles.scanButtonText}>Scan Receipt</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
 }
 
+const PRIMARY = "#00D09E";
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#00D09E",
+    backgroundColor: PRIMARY,
   },
 
   header: {
@@ -126,25 +145,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 25,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
 
   headerTitle: {
     fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
-    color: "#093030",
+    color: "#ffffff",
     lineHeight: 22,
   },
 
-  card: {
-    top: 35,
+  // Same idea as EduFinance: rounded white area filling the rest
+  innerContainer: {
     flex: 1,
-    backgroundColor: "#fff",
-    marginTop: 50,
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    alignItems: "center",
+  },
+
+  cardContent: {
+    width: "100%",
     alignItems: "center",
   },
 
@@ -154,7 +179,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textAlign: "center",
     color: "#093030",
-    marginBottom: 70,
+    marginBottom: 40,
   },
 
   receiptPreview: {
@@ -182,7 +207,7 @@ const styles = StyleSheet.create({
   scanButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#00D09E",
+    backgroundColor: PRIMARY,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
@@ -193,5 +218,12 @@ const styles = StyleSheet.create({
     color: "#093030",
     fontWeight: "700",
     fontSize: 14,
+  },
+
+  errorText: {
+    marginTop: 12,
+    fontSize: 12,
+    color: "red",
+    textAlign: "center",
   },
 });

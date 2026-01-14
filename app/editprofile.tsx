@@ -3,21 +3,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../utils/supabase"; // 🔁 adjust path if needed
 
-const PRIMARY = "#05C88F";
+const PRIMARY = "#00D09E";
 const BG_LIGHT = "#E9FFF4";
 
 export default function EditProfileScreen() {
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingBottom: 16,
-    paddingTop: 40,
+    paddingTop: 10,
     justifyContent: "space-between",
   },
   headerTitle: {
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   card: {
-    top: 80,
+    top: 20,
     flex: 1,
     backgroundColor: "#fff",
     borderTopLeftRadius: 40,

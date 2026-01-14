@@ -1,17 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
+
 
 const MENU_ITEMS = [
   { label: "Edit Profile", icon: "person-outline" as const },
@@ -22,6 +17,47 @@ const MENU_ITEMS = [
 ];
 
 export default function ProfileScreen() {
+  const DEFAULT_AVATAR = "https://via.placeholder.com/150x150.png?text=Profile";
+  const [avatarUri, setAvatarUri] = useState(DEFAULT_AVATAR);
+
+  const pickAvatar = async () => {
+    // 1️⃣ Get current auth user
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const user = authData?.user;
+
+    if (authError || !user) {
+      console.log("No logged-in user:", authError);
+      return;
+    }
+
+    // 2️⃣ Let user pick an image
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (result.canceled || !result.assets[0]?.uri) {
+      return;
+    }
+
+    const uri = result.assets[0].uri;
+
+    
+    setAvatarUri(uri);
+
+    
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ avatar_url: uri })
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      console.log("Failed to save avatar url:", updateError);
+    }
+  };
+
   const router = useRouter();
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -43,15 +79,17 @@ export default function ProfileScreen() {
 
       const { data: profile, error: profileError } = await supabase
         .from("users")
-        .select("id, username, email, user_id")
+        .select("id, username, email, user_id, avatar_url")
         .eq("user_id", user.id)
-        .single();  // you now expect exactly one row
-
-      console.log("PROFILE:", profile, profileError);
+        .single();
 
       if (profile?.username) {
         setDisplayName(profile.username);
         setUserId(String(profile.id));
+
+        if (profile.avatar_url) {
+          setAvatarUri(profile.avatar_url);
+        }
       }
 
       setLoading(false);
@@ -64,14 +102,13 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top green header */}
       <View style={styles.header}>
         <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#fff" />
+          <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#fff" />
+          <Ionicons name="notifications-outline" size={24} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
@@ -80,17 +117,14 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.card}>
-          {/* Avatar */}
-          <View style={styles.avatarWrapper}>
-            <Image
-              style={styles.avatar}
-              source={{
-                uri: "https://via.placeholder.com/150x150.png?text=Profile",
-              }}
-            />
-          </View>
+          <TouchableOpacity style={styles.avatarWrapper} onPress={pickAvatar}>
+            <Image style={styles.avatar} source={{ uri: avatarUri }} />
 
-          {/* Name & ID */}
+            <View style={styles.cameraBadge}>
+              <Ionicons name="camera" size={18} color="#fff" />
+            </View>
+
+          </TouchableOpacity>
           {loading ? (
             <ActivityIndicator style={{ marginTop: 16 }} />
           ) : (
@@ -105,7 +139,7 @@ export default function ProfileScreen() {
             </>
           )}
 
-          {/* Menu */}
+
           <View style={styles.menuList}>
             {MENU_ITEMS.map((item) => (
               <TouchableOpacity
@@ -114,9 +148,12 @@ export default function ProfileScreen() {
                 activeOpacity={0.7}
                 onPress={() => {
                   if (item.label === "Edit Profile") {
-                    router.push("/editprofile");  // 👈 go to edit screen
+                    router.push("/editprofile");  
                   }
-                  // you can handle others later (Security, Logout etc.)
+                  if (item.label === "Logout") {
+                    supabase.auth.signOut();
+                    router.replace("/login");
+                  }
                 }}
               >
                 <View style={styles.menuIconWrapper}>
@@ -132,7 +169,7 @@ export default function ProfileScreen() {
   );
 }
 
-const PRIMARY = "#05C88F";
+const PRIMARY = "#00D09E";
 const BG_LIGHT = "#E9FFF4";
 
 const styles = StyleSheet.create({
@@ -144,12 +181,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    paddingTop: 10,
+    paddingTop: 20,
     justifyContent: "space-between",
   },
   headerTitle: {
-    color: "#0E3E3E",
+    color: "#ffffff",
     fontSize: 18,
     fontWeight: "700",
   },
@@ -163,28 +199,45 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 40,
     alignItems: "center",
     top: 80,
-    paddingTop: 60,
+    paddingTop: 40,
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
   avatarWrapper: {
     position: "absolute",
-    top: -45,
+    top: -55,           
     alignSelf: "center",
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     borderWidth: 4,
-    borderColor: BG_LIGHT,
+    borderColor: "#fff",  
     overflow: "hidden",
-    backgroundColor: "#fff",
+    backgroundColor: PRIMARY,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,          
   },
   avatar: {
     width: "100%",
     height: "100%",
+    borderRadius: 55,
+  },
+  cameraBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 2,
+    backgroundColor: "#00D09E", 
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#fff", 
   },
   name: {
-    marginTop: 10,
+    marginTop: 30,
     fontSize: 20,
     fontWeight: "700",
     color: "#0E3E3E",
@@ -204,6 +257,7 @@ const styles = StyleSheet.create({
   menuList: {
     marginTop: 32,
     alignSelf: "stretch",
+    padding: 10
   },
   menuRow: {
     flexDirection: "row",
