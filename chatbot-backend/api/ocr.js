@@ -73,7 +73,7 @@ export default async function handler(req, res) {
                 type: "input_text",
                 text:
                   "Extract the receipt data from this image. " +
-                  "Return ONLY valid JSON in this exact format: " +
+                  "Return ONLY valid JSON. No code fences, no commentary. Format: " +
                   `{
                     "merchant_name": "string",
                     "total_amount": number,
@@ -83,7 +83,7 @@ export default async function handler(req, res) {
               },
               {
                 type: "input_image",
-                image_url: imageUrl, // ✅ signed URL
+                image_url: imageUrl,
               },
             ],
           },
@@ -102,7 +102,16 @@ export default async function handler(req, res) {
       }
 
       console.log("📝 OpenAI output text:", outputText);
-      receiptData = JSON.parse(outputText);
+
+      // 🧼 CLEANUP STEP — strip ```json fences
+      const cleaned = outputText
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .trim();
+
+      console.log("🧽 CLEANED JSON:", cleaned);
+
+      receiptData = JSON.parse(cleaned);
     } catch (err) {
       console.error("❌ OpenAI extraction error:", err);
       return res.status(500).json({
