@@ -1,30 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
-import express from "express";
 import OpenAI from "openai";
 
-const router = express.Router();
-
-// 🔹 Read env vars that you actually have in Vercel
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
-
-if (!supabaseUrl) {
-  console.error("❌ SUPABASE_URL env var is missing");
-}
-if (!supabaseServiceKey) {
-  console.error("❌ SUPABASE_SERVICE_KEY env var is missing");
-}
-
-// 🔹 This is where the previous error came from
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY,
+);
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-router.post("/ocr", async (req, res) => {
-  console.log("🚀 /api/ocr request body:", req.body);
+export default async function handler(req, res) {
+  console.log("🚀 /api/ocr invoked");
+
+  if (req.method !== "POST") {
+    return res
+      .status(405)
+      .json({ success: false, error: "Method not allowed" });
+  }
 
   try {
-    const { imageBase64, userId } = req.body;
+    const { imageBase64, userId } = req.body || {};
+    console.log("BODY:", { hasImage: !!imageBase64, userId });
 
     if (!imageBase64 || !userId) {
       return res
@@ -32,7 +27,7 @@ router.post("/ocr", async (req, res) => {
         .json({ success: false, error: "Missing imageBase64 or userId" });
     }
 
-    // 1️⃣ Upload image to Supabase Storage
+    // 1️⃣ Upload to Supabase
     let imageUrl;
     try {
       console.log("📤 Uploading image to Supabase...");
@@ -60,10 +55,12 @@ router.post("/ocr", async (req, res) => {
         .json({ success: false, error: "Supabase upload failed" });
     }
 
-    // 2️⃣ Call OpenAI to extract receipt data
+    // 2️⃣ Call OpenAI
     let receiptData;
     try {
       console.log("🤖 Sending image to OpenAI for analysis...");
+
+      console.log("openai.responses typeof:", typeof openai.responses);
 
       const response = await openai.responses.create({
         model: "gpt-4.1-mini",
@@ -113,7 +110,7 @@ router.post("/ocr", async (req, res) => {
       });
     }
 
-    // 3️⃣ Insert into Supabase receipts table
+    // 3️⃣ Insert into DB
     let savedReceipt;
     try {
       console.log("💾 Inserting receipt into Supabase table...");
@@ -152,6 +149,4 @@ router.post("/ocr", async (req, res) => {
       .status(500)
       .json({ success: false, error: "Unexpected server error in OCR" });
   }
-});
-
-export default router;
+}
