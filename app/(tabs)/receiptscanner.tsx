@@ -121,6 +121,7 @@ export default function ReceiptScanner() {
 
           {receiptData && (
             <View style={styles.resultCard}>
+              <Text style={styles.resultTitle}>Receipt Saved</Text>
               <Text>Merchant: {receiptData.merchant_name}</Text>
               <Text>Total: RM {receiptData.total_amount}</Text>
               <Text>Date: {receiptData.receipt_date}</Text>
@@ -228,9 +229,13 @@ const styles = StyleSheet.create({
   },
   resultCard: {
     marginTop: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: PRIMARY,
+    padding: 12,
     borderRadius: 12,
+    backgroundColor: "#E9FFF4",
+  },
+  resultTitle: {
+    fontWeight: "700",
+    marginBottom: 6,
+    color: "#093030",
   },
 });

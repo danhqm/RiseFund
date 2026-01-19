@@ -58,9 +58,7 @@ export default async function handler(req, res) {
     // 2️⃣ Call OpenAI
     let receiptData;
     try {
-      console.log("🤖 Sending image to OpenAI for analysis...");
-
-      console.log("openai.responses typeof:", typeof openai.responses);
+      console.log("🤖 Sending image to OpenAI for analysis (base64)...");
 
       const response = await openai.responses.create({
         model: "gpt-4.1-mini",
@@ -82,7 +80,7 @@ export default async function handler(req, res) {
               },
               {
                 type: "input_image",
-                image_url: imageUrl,
+                image_base64: imageBase64, // ✅ use the raw base64 from the client
               },
             ],
           },
