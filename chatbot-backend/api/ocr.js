@@ -4,10 +4,19 @@ import OpenAI from "openai";
 
 const router = express.Router();
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
+// 🔹 Read env vars that you actually have in Vercel
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
+
+if (!supabaseUrl) {
+  console.error("❌ SUPABASE_URL env var is missing");
+}
+if (!supabaseServiceKey) {
+  console.error("❌ SUPABASE_SERVICE_KEY env var is missing");
+}
+
+// 🔹 This is where the previous error came from
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
