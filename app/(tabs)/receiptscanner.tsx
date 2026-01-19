@@ -1,13 +1,8 @@
+import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
-import {
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const OCR_API_URL = "https://rise-fund-6r5s.vercel.app/api/ocr";
@@ -17,8 +12,6 @@ export default function ReceiptScanner() {
   const [loading, setLoading] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const dummyUserId = "11111111-1111-1111-1111-111111111111";
 
   const pickImage = async () => {
     setError(null);
@@ -39,13 +32,21 @@ export default function ReceiptScanner() {
     setReceiptData(null);
     setError(null);
 
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+
+    if (!userId) {
+      setError("You need to be logged in to scan receipts.");
+      return;
+    }
+
     try {
       const res = await fetch(OCR_API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           imageBase64: base64,
-          userId: dummyUserId,
+          userId,
         }),
       });
 
@@ -83,9 +84,7 @@ export default function ReceiptScanner() {
           <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>
-          Receipt{"\n"}Scanner
-        </Text>
+        <Text style={styles.headerTitle}>Receipt{"\n"}Scanner</Text>
 
         <TouchableOpacity>
           <Ionicons name="notifications-outline" size={22} color="#ffffff" />
@@ -111,20 +110,21 @@ export default function ReceiptScanner() {
           <Text style={styles.helperText}>Clear image works the best.</Text>
 
           {/* Scan button (logic same as before; hook pickImage if/when you want) */}
-          <TouchableOpacity
-            style={styles.scanButton}
-            // onPress={pickImage} // <- uncomment when you’re ready to hook it up
-          >
+          <TouchableOpacity style={styles.scanButton} onPress={pickImage}>
             <Ionicons name="scan-outline" size={20} color="#093030" />
             <Text style={styles.scanButtonText}>
               {loading ? "Scanning..." : "Scan Receipt"}
             </Text>
           </TouchableOpacity>
 
-          {error && (
-            <Text style={styles.errorText}>
-              {error}
-            </Text>
+          {error && <Text style={styles.errorText}>{error}</Text>}
+
+          {receiptData && (
+            <View style={styles.resultCard}>
+              <Text>Merchant: {receiptData.merchant_name}</Text>
+              <Text>Total: RM {receiptData.total_amount}</Text>
+              <Text>Date: {receiptData.receipt_date}</Text>
+            </View>
           )}
         </View>
       </View>
@@ -225,5 +225,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "red",
     textAlign: "center",
+  },
+  resultCard: {
+    marginTop: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: PRIMARY,
+    borderRadius: 12,
   },
 });
