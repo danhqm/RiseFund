@@ -42,12 +42,15 @@ export default async function handler(req, res) {
 
       if (uploadError) throw uploadError;
 
-      const { data: pub } = supabase.storage
+      // 🔑 Create a signed URL that OpenAI can access
+      const { data: signed, error: signedError } = await supabase.storage
         .from("receipts")
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 60 * 10); // 10 minutes
 
-      imageUrl = pub.publicUrl;
-      console.log("✅ Image uploaded:", imageUrl);
+      if (signedError) throw signedError;
+
+      imageUrl = signed.signedUrl;
+      console.log("✅ Image uploaded, signed URL:", imageUrl);
     } catch (err) {
       console.error("❌ Supabase upload error:", err);
       return res
@@ -58,7 +61,7 @@ export default async function handler(req, res) {
     // 2️⃣ Call OpenAI
     let receiptData;
     try {
-      console.log("🤖 Sending image to OpenAI for analysis (base64)...");
+      console.log("🤖 Sending image to OpenAI for analysis...");
 
       const response = await openai.responses.create({
         model: "gpt-4.1-mini",
@@ -80,7 +83,7 @@ export default async function handler(req, res) {
               },
               {
                 type: "input_image",
-                image_base64: imageBase64, // ✅ use the raw base64 from the client
+                image_url: imageUrl, // ✅ signed URL
               },
             ],
           },
