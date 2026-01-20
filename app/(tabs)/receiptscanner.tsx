@@ -2,7 +2,14 @@ import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import React, { useState } from "react";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const OCR_API_URL = "https://rise-fund-6r5s.vercel.app/api/ocr";
@@ -120,47 +127,57 @@ export default function ReceiptScanner() {
           {error && <Text style={styles.errorText}>{error}</Text>}
 
           {receiptData && (
-            <View style={styles.resultCard}>
-              <Text style={styles.resultTitle}>Last Scanned Receipt</Text>
+            <ScrollView
+              style={styles.resultScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 40 }}
+            >
+              <View style={styles.resultCard}>
+                <Text style={styles.resultTitle}>Last Scanned Receipt</Text>
 
-              <Text style={styles.resultLabel}>Merchant</Text>
-              <Text style={styles.resultValue}>
-                {receiptData.merchant_name || "Unknown"}
-              </Text>
+                <Text style={styles.resultLabel}>Merchant</Text>
+                <Text style={styles.resultValue}>
+                  {receiptData.merchant_name || "Unknown"}
+                </Text>
 
-              <Text style={styles.resultLabel}>Date</Text>
-              <Text style={styles.resultValue}>
-                {receiptData.receipt_date || "—"}
-              </Text>
+                <Text style={styles.resultLabel}>Date</Text>
+                <Text style={styles.resultValue}>
+                  {receiptData.receipt_date || "—"}
+                </Text>
 
-              <Text style={styles.resultLabel}>Total Amount</Text>
-              <Text style={styles.resultValue}>
-                RM {Number(receiptData.total_amount || 0).toFixed(2)}
-              </Text>
+                <Text style={styles.resultLabel}>Total Amount</Text>
+                <Text style={styles.resultValue}>
+                  RM {Number(receiptData.total_amount || 0).toFixed(2)}
+                </Text>
 
-              {Array.isArray(receiptData.items) &&
-                receiptData.items.length > 0 && (
-                  <>
-                    <Text style={[styles.resultLabel, { marginTop: 10 }]}>
-                      Items
-                    </Text>
-                    {receiptData.items
-                      .slice(0, 3)
-                      .map((item: any, idx: number) => (
+                {/* Category */}
+                <Text style={styles.resultLabel}>Category</Text>
+                <Text style={styles.resultValue}>
+                  {receiptData.category
+                    ? receiptData.category
+                        .replace(/_/g, " ")
+                        .toLowerCase()
+                        .replace(/\b\w/g, (c: string) => c.toUpperCase())
+                    : "Not categorized"}
+                </Text>
+
+                {/* Items */}
+                {Array.isArray(receiptData.items) &&
+                  receiptData.items.length > 0 && (
+                    <>
+                      <Text style={[styles.resultLabel, { marginTop: 10 }]}>
+                        Items
+                      </Text>
+                      {receiptData.items.map((item: any, idx: number) => (
                         <Text key={idx} style={styles.itemText}>
-                          • {item.name} – RM{" "}
+                          • {item.name || "Item"} – RM{" "}
                           {Number(item.price || 0).toFixed(2)}
                         </Text>
                       ))}
-
-                    {receiptData.items.length > 3 && (
-                      <Text style={styles.moreItemsText}>
-                        +{receiptData.items.length - 3} more item(s)
-                      </Text>
-                    )}
-                  </>
-                )}
-            </View>
+                    </>
+                  )}
+              </View>
+            </ScrollView>
           )}
         </View>
       </View>
@@ -254,6 +271,10 @@ const styles = StyleSheet.create({
     color: "#093030",
     fontWeight: "700",
     fontSize: 14,
+  },
+  resultScroll: {
+    maxHeight: 300, // adjust (300–420 works well)
+    marginTop: 12,
   },
   resultCard: {
     marginTop: 24,
