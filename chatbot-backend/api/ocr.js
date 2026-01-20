@@ -229,7 +229,7 @@ export default async function handler(req, res) {
             receipt_date: receiptData.receipt_date,
             items: receiptData.items,
             image_url: imageUrl,
-            categorty: finalCategory,
+            category: finalCategory,
           },
         ])
         .select()
