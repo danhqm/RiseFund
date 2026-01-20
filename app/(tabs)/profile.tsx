@@ -2,11 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
-
 
 const MENU_ITEMS = [
   { label: "Edit Profile", icon: "person-outline" as const },
@@ -32,7 +38,7 @@ export default function ProfileScreen() {
 
     // 2️⃣ Let user pick an image
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -44,10 +50,8 @@ export default function ProfileScreen() {
 
     const uri = result.assets[0].uri;
 
-    
     setAvatarUri(uri);
 
-    
     const { error: updateError } = await supabase
       .from("users")
       .update({ avatar_url: uri })
@@ -104,11 +108,11 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#ffffff" />
+          <Ionicons name="chevron-back" size={24} color="#052224" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#ffffff" />
+          <Ionicons name="notifications-outline" size={24} color="#052224" />
         </TouchableOpacity>
       </View>
 
@@ -123,7 +127,6 @@ export default function ProfileScreen() {
             <View style={styles.cameraBadge}>
               <Ionicons name="camera" size={18} color="#fff" />
             </View>
-
           </TouchableOpacity>
           {loading ? (
             <ActivityIndicator style={{ marginTop: 16 }} />
@@ -139,7 +142,6 @@ export default function ProfileScreen() {
             </>
           )}
 
-
           <View style={styles.menuList}>
             {MENU_ITEMS.map((item) => (
               <TouchableOpacity
@@ -148,7 +150,7 @@ export default function ProfileScreen() {
                 activeOpacity={0.7}
                 onPress={() => {
                   if (item.label === "Edit Profile") {
-                    router.push("/editprofile");  
+                    router.push("/editprofile");
                   }
                   if (item.label === "Logout") {
                     supabase.auth.signOut();
@@ -185,7 +187,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   headerTitle: {
-    color: "#ffffff",
+    color: "#052224",
     fontSize: 18,
     fontWeight: "700",
   },
@@ -205,18 +207,18 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     position: "absolute",
-    top: -55,           
+    top: -55,
     alignSelf: "center",
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 4,
-    borderColor: "#fff",  
+    borderColor: "#fff",
     overflow: "hidden",
     backgroundColor: PRIMARY,
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 10,          
+    zIndex: 10,
   },
   avatar: {
     width: "100%",
@@ -227,14 +229,14 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     right: 2,
-    backgroundColor: "#00D09E", 
+    backgroundColor: "#00D09E",
     width: 32,
     height: 32,
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#fff", 
+    borderColor: "#fff",
   },
   name: {
     marginTop: 30,
@@ -257,7 +259,7 @@ const styles = StyleSheet.create({
   menuList: {
     marginTop: 32,
     alignSelf: "stretch",
-    padding: 10
+    padding: 10,
   },
   menuRow: {
     flexDirection: "row",

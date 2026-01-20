@@ -88,13 +88,13 @@ export default function ReceiptScanner() {
       {/* Header (same style as EduFinance) */}
       <View style={styles.header}>
         <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#ffffff" />
+          <Ionicons name="chevron-back" size={24} color="#052224" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Receipt{"\n"}Scanner</Text>
 
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={22} color="#ffffff" />
+          <Ionicons name="notifications-outline" size={22} color="#052224" />
         </TouchableOpacity>
       </View>
 
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
-    color: "#ffffff",
+    color: "#052224",
     lineHeight: 22,
   },
 

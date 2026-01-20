@@ -2,11 +2,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
-
-
 
 const PRIMARY = "#00D09E";
 const CARD_BG = "#E9FFF4";
@@ -16,7 +24,7 @@ function computeStreak(dates: string[]): number {
 
   // Sort newest → oldest
   const sorted = [...dates].sort(
-    (a, b) => new Date(b).getTime() - new Date(a).getTime()
+    (a, b) => new Date(b).getTime() - new Date(a).getTime(),
   );
 
   let streak = 1;
@@ -25,8 +33,7 @@ function computeStreak(dates: string[]): number {
     const prev = new Date(sorted[i - 1]);
     const curr = new Date(sorted[i]);
 
-    const diffDays =
-      (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
+    const diffDays = (prev.getTime() - curr.getTime()) / (1000 * 60 * 60 * 24);
 
     if (diffDays === 1) {
       streak++;
@@ -41,7 +48,7 @@ function computeStreak(dates: string[]): number {
 function getWeekKey(date = new Date()) {
   // ISO week number
   const d = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
   );
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
@@ -51,15 +58,49 @@ function getWeekKey(date = new Date()) {
   return `${d.getUTCFullYear()}-W${paddedWeek}`; // e.g. "2026-W03"
 }
 
-const BADGE_CONFIG: Record<
-  string,
-  { emoji: string; labelOverride?: string }
-> = {
-  streak_1: { emoji: "✨" },
-  streak_3: { emoji: "🔥" },
-  streak_7: { emoji: "🏅" },
-  streak_30: { emoji: "🏆" },
-};
+const BADGE_CONFIG: Record<string, { emoji: string; labelOverride?: string }> =
+  {
+    // 🔥 Streak badges (already in use)
+    streak_1: { emoji: "✨" },
+    streak_3: { emoji: "🔥" },
+    streak_7: { emoji: "🏅" },
+    streak_30: { emoji: "🏆" },
+
+    // 💰 Savings progression
+    savings_novice: { emoji: "💰" },
+    savings_pro: { emoji: "🏦" },
+    savings_master: { emoji: "🌈" },
+
+    // 📊 Budgeting progression
+    budget_novice: { emoji: "📊" },
+    budget_pro: { emoji: "📈" },
+    budget_master: { emoji: "💼" },
+
+    // 💳 Debt management progression
+    debt_novice: { emoji: "💳" },
+    debt_pro: { emoji: "📉" },
+    debt_master: { emoji: "🧾" },
+
+    // 🧾 Scanner / receipts (will be awarded from OCR later)
+    scanner_first: { emoji: "🧾" },
+    scanner_10: { emoji: "🧮" },
+    scanner_50: { emoji: "📚" },
+
+    // 🍔 Category fun (also from receipts later)
+    foodie: { emoji: "🍔" }, // lots of FOOD_AND_DRINK
+    groceries_hero: { emoji: "🛒" }, // lots of GROCERIES
+
+    // 💸 Budget behaviour (can be from Home screen later)
+    under_budget: { emoji: "📉" },
+    super_saver: { emoji: "💎" },
+    spender: { emoji: "💸" },
+
+    // 🤖 Fin engagement (later, from chatbot)
+    fin_fan: { emoji: "🤖" },
+    fin_superfan: { emoji: "🌟" },
+  };
+
+const TOTAL_BADGES = Object.keys(BADGE_CONFIG).length;
 
 export default function EduFinanceScreen() {
   const [savingsCompleted, setSavingsCompleted] = useState(0);
@@ -67,16 +108,18 @@ export default function EduFinanceScreen() {
   const [debtCompleted, setDebtCompleted] = useState(0);
   const [streakCount, setStreakCount] = useState(0);
   const router = useRouter();
+  const [isBadgeModalVisible, setBadgeModalVisible] = useState(false);
 
   const [badges, setBadges] = useState<
-    { badge_code: string; badge_name: string; badge_description: string | null }[]
+    {
+      badge_code: string;
+      badge_name: string;
+      badge_description: string | null;
+    }[]
   >([]);
 
   const loadBadges = useCallback(async () => {
-    const {
-      data: authData,
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
 
     if (authError || !user) {
@@ -102,10 +145,8 @@ export default function EduFinanceScreen() {
 
   const checkAndAwardStreakBadges = useCallback(
     async (streak: number) => {
-      const {
-        data: authData,
-        error: authError,
-      } = await supabase.auth.getUser();
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
       const user = authData?.user;
 
       if (authError || !user) {
@@ -163,6 +204,7 @@ export default function EduFinanceScreen() {
         });
       }
 
+      // 30-day streak
       if (streak >= 30 && !owned.has("streak_30")) {
         toInsert.push({
           user_id: user.id,
@@ -179,24 +221,154 @@ export default function EduFinanceScreen() {
         .insert(toInsert);
 
       if (insertError) {
-        console.log("Error inserting badges:", insertError);
+        console.log("Error inserting streak badges:", insertError);
         return;
       }
 
-      console.log("🏆 New badges earned:", toInsert.map((b) => b.badge_code));
+      console.log(
+        "🏆 New streak badges earned:",
+        toInsert.map((b) => b.badge_code),
+      );
 
-      // Refresh local list
+      // refresh local list
       loadBadges();
     },
-    [loadBadges]
+    [loadBadges],
+  );
+
+  const checkAndAwardTaskBadges = useCallback(
+    async (savingsCount: number, budgetingCount: number, debtCount: number) => {
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser();
+      const user = authData?.user;
+
+      if (authError || !user) {
+        console.log("No user for task badges:", authError);
+        return;
+      }
+
+      // 1️⃣ Get existing badge codes for this user
+      const { data: existing, error: existingError } = await supabase
+        .from("user_badges")
+        .select("badge_code")
+        .eq("user_id", user.id);
+
+      if (existingError) {
+        console.log("Error checking existing task badges:", existingError);
+        return;
+      }
+
+      const owned = new Set((existing || []).map((b) => b.badge_code));
+      const toInsert: {
+        user_id: string;
+        badge_code: string;
+        badge_name: string;
+        badge_description?: string;
+      }[] = [];
+
+      // 💰 Savings badges
+      if (savingsCount >= 3 && !owned.has("savings_novice")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "savings_novice",
+          badge_name: "Savings Starter",
+          badge_description: "Completed 3 savings exercises.",
+        });
+      }
+      if (savingsCount >= 6 && !owned.has("savings_pro")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "savings_pro",
+          badge_name: "Savings Pro",
+          badge_description: "Completed 6 savings exercises.",
+        });
+      }
+      if (savingsCount >= 9 && !owned.has("savings_master")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "savings_master",
+          badge_name: "Savings Master",
+          badge_description: "Completed 9 savings exercises.",
+        });
+      }
+
+      // 📊 Budgeting badges
+      if (budgetingCount >= 3 && !owned.has("budget_novice")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "budget_novice",
+          badge_name: "Budget Rookie",
+          badge_description: "Completed 3 budgeting exercises.",
+        });
+      }
+      if (budgetingCount >= 6 && !owned.has("budget_pro")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "budget_pro",
+          badge_name: "Budget Planner",
+          badge_description: "Completed 6 budgeting exercises.",
+        });
+      }
+      if (budgetingCount >= 9 && !owned.has("budget_master")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "budget_master",
+          badge_name: "Budget Strategist",
+          badge_description: "Completed 9 budgeting exercises.",
+        });
+      }
+
+      // 💳 Debt badges
+      if (debtCount >= 3 && !owned.has("debt_novice")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "debt_novice",
+          badge_name: "Debt Aware",
+          badge_description: "Completed 3 debt management exercises.",
+        });
+      }
+      if (debtCount >= 6 && !owned.has("debt_pro")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "debt_pro",
+          badge_name: "Debt Fighter",
+          badge_description: "Completed 6 debt management exercises.",
+        });
+      }
+      if (debtCount >= 9 && !owned.has("debt_master")) {
+        toInsert.push({
+          user_id: user.id,
+          badge_code: "debt_master",
+          badge_name: "Debt Free Mindset",
+          badge_description: "Completed 9 debt management exercises.",
+        });
+      }
+
+      if (toInsert.length === 0) return;
+
+      const { error: insertError } = await supabase
+        .from("user_badges")
+        .insert(toInsert);
+
+      if (insertError) {
+        console.log("Error inserting task badges:", insertError);
+        return;
+      }
+
+      console.log(
+        "🏆 New task badges earned:",
+        toInsert.map((b) => b.badge_code),
+      );
+
+      // refresh list so UI shows new badges + progress
+      loadBadges();
+    },
+    [loadBadges],
   );
 
   // 🔹 1. Load completion counts
   const loadCompletionCounts = useCallback(async () => {
-    const {
-      data: authData,
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
 
     if (authError || !user) {
@@ -234,14 +406,13 @@ export default function EduFinanceScreen() {
     setSavingsCompleted(savingsCount);
     setBudgetingCompleted(budgetingCount);
     setDebtCompleted(debtCount);
-  }, []);
+
+    await checkAndAwardTaskBadges(savingsCount, budgetingCount, debtCount);
+  }, [checkAndAwardTaskBadges]);
 
   // 🔹 2. Load streak count
   const loadStreak = useCallback(async () => {
-    const {
-      data: authData,
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
 
     if (authError || !user) {
@@ -267,26 +438,39 @@ export default function EduFinanceScreen() {
     setStreakCount(streak);
 
     checkAndAwardStreakBadges(streak);
-
-  }, [checkAndAwardStreakBadges]);
+  }, [checkAndAwardStreakBadges, checkAndAwardTaskBadges]);
 
   // 🔹 3. useFocusEffect: run both whenever screen is focused
   useFocusEffect(
     useCallback(() => {
       loadCompletionCounts();
       loadStreak();
-    }, [loadCompletionCounts, loadStreak, loadBadges])
+      loadBadges();
+    }, [
+      loadCompletionCounts,
+      loadStreak,
+      loadBadges,
+      checkAndAwardTaskBadges,
+      checkAndAwardStreakBadges,
+    ]),
   );
+
+  const unlockedBadgeCount = badges.filter(
+    (b) => !!BADGE_CONFIG[b.badge_code],
+  ).length;
+
+  const badgeProgress =
+    TOTAL_BADGES > 0 ? (unlockedBadgeCount / TOTAL_BADGES) * 100 : 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#ffffff" />
+          <Ionicons name="chevron-back" size={24} color="#052224" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>EduFinance</Text>
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#ffffff" />
+          <Ionicons name="notifications-outline" size={24} color="#052224" />
         </TouchableOpacity>
       </View>
 
@@ -299,32 +483,6 @@ export default function EduFinanceScreen() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.subtitle}>Lets Do Some Exercises</Text>
-
-            <Text style={styles.sectionTitle}>Savings</Text>
-            <TaskCard
-              title="Savings Task"
-              description={`Completed ${savingsCompleted}/3`}
-              image={require("../../assets/images/safe box.png")}
-              onPress={() => router.push({ pathname: "/edufinance-quiz", params: { category: "savings" } })}
-            />
-
-            <Text style={styles.sectionTitle}>Budgeting</Text>
-            <TaskCard
-              title="Budgeting Task"
-              description={`Completed ${budgetingCompleted}/3`}
-              image={require("../../assets/images/wallet with cash.png")}
-              onPress={() => router.push({ pathname: "/edufinance-quiz", params: { category: "budgeting" } })}
-            />
-
-            <Text style={styles.sectionTitle}>Debt Management</Text>
-            <TaskCard
-              title="Debt Task"
-              description={`Completed ${debtCompleted}/3`}
-              image={require("../../assets/images/credit card.png")}
-              onPress={() => router.push({ pathname: "/edufinance-quiz", params: { category: "debt" } })}
-            />
-
             <Text style={styles.sectionTitle}>Create A Streak Going!</Text>
             <TaskCard
               title="Streaks!"
@@ -341,15 +499,38 @@ export default function EduFinanceScreen() {
 
             {badges.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>Badges Earned</Text>
+                <View style={styles.badgeHeaderRow}>
+                  <Text style={styles.sectionTitle}>Badges Earned</Text>
+                  <TouchableOpacity onPress={() => setBadgeModalVisible(true)}>
+                    <Text style={styles.viewAllText}>View all</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 🔹 Progress summary */}
+                <Text style={styles.badgeProgressText}>
+                  {unlockedBadgeCount} / {TOTAL_BADGES} badges unlocked
+                </Text>
+                <View style={styles.badgeProgressBar}>
+                  <View
+                    style={[
+                      styles.badgeProgressFill,
+                      { width: `${badgeProgress}%` },
+                    ]}
+                  />
+                </View>
+
                 <View style={styles.badgeRow}>
                   {badges.map((badge) => {
-                    const meta = BADGE_CONFIG[badge.badge_code] || { emoji: "🏆" };
+                    const meta = BADGE_CONFIG[badge.badge_code] || {
+                      emoji: "🏆",
+                    };
                     return (
                       <View key={badge.badge_code} style={styles.badgePill}>
                         <Text style={styles.badgeEmoji}>{meta.emoji}</Text>
                         <View style={{ marginLeft: 6 }}>
-                          <Text style={styles.badgeName}>{badge.badge_name}</Text>
+                          <Text style={styles.badgeName}>
+                            {badge.badge_name}
+                          </Text>
                           {badge.badge_description ? (
                             <Text style={styles.badgeDescription}>
                               {badge.badge_description}
@@ -362,9 +543,110 @@ export default function EduFinanceScreen() {
                 </View>
               </>
             )}
+
+            <Text style={styles.subtitle}>Lets Do Some Exercises</Text>
+
+            <Text style={styles.sectionTitle}>Savings</Text>
+            <TaskCard
+              title="Savings Task"
+              description={`Completed ${savingsCompleted}/3`}
+              image={require("../../assets/images/safe box.png")}
+              onPress={() =>
+                router.push({
+                  pathname: "/edufinance-quiz",
+                  params: { category: "savings" },
+                })
+              }
+            />
+
+            <Text style={styles.sectionTitle}>Budgeting</Text>
+            <TaskCard
+              title="Budgeting Task"
+              description={`Completed ${budgetingCompleted}/3`}
+              image={require("../../assets/images/wallet with cash.png")}
+              onPress={() =>
+                router.push({
+                  pathname: "/edufinance-quiz",
+                  params: { category: "budgeting" },
+                })
+              }
+            />
+
+            <Text style={styles.sectionTitle}>Debt Management</Text>
+            <TaskCard
+              title="Debt Task"
+              description={`Completed ${debtCompleted}/3`}
+              image={require("../../assets/images/credit card.png")}
+              onPress={() =>
+                router.push({
+                  pathname: "/edufinance-quiz",
+                  params: { category: "debt" },
+                })
+              }
+            />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+      <Modal
+        visible={isBadgeModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setBadgeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Your Badges</Text>
+              <TouchableOpacity
+                onPress={() => setBadgeModalVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={20} color="#052224" />
+              </TouchableOpacity>
+            </View>
+
+            {badges.length === 0 ? (
+              <View style={styles.modalEmptyState}>
+                <Text style={styles.modalEmptyEmoji}>🏅</Text>
+                <Text style={styles.modalEmptyTitle}>No badges yet</Text>
+                <Text style={styles.modalEmptyText}>
+                  Complete EduFinance exercises and keep your streak going to
+                  earn badges.
+                </Text>
+              </View>
+            ) : (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.modalScrollContent}
+              >
+                <View style={styles.modalBadgeGrid}>
+                  {badges.map((badge) => {
+                    const meta = BADGE_CONFIG[badge.badge_code] || {
+                      emoji: "🏆",
+                    };
+                    return (
+                      <View
+                        key={badge.badge_code}
+                        style={styles.modalBadgeCard}
+                      >
+                        <Text style={styles.modalBadgeEmoji}>{meta.emoji}</Text>
+                        <Text style={styles.modalBadgeName}>
+                          {badge.badge_name}
+                        </Text>
+                        {badge.badge_description ? (
+                          <Text style={styles.modalBadgeDescription}>
+                            {badge.badge_description}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -379,15 +661,22 @@ type TaskCardProps = {
   onPress?: () => void;
 };
 
-
-
-const TaskCard: React.FC<TaskCardProps> = ({ title, description, multiline, image, imageStyle, showCircle = true, onPress }) => {
+const TaskCard: React.FC<TaskCardProps> = ({
+  title,
+  description,
+  multiline,
+  image,
+  imageStyle,
+  showCircle = true,
+  onPress,
+}) => {
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
       <View style={styles.card}>
         <View style={styles.imageWrapper}>
           <Image source={image} style={[styles.cardImage, imageStyle]} />
         </View>
+
         <View style={styles.cardTextContainer}>
           <Text style={styles.cardTitle}>{title}</Text>
           <Text
@@ -397,8 +686,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ title, description, multiline, imag
             {description}
           </Text>
         </View>
+
         {showCircle ? (
-          <View style={styles.circleOuter} />
+          <View style={styles.arrowWrapper}>
+            <Ionicons name="chevron-forward" size={20} color="#2F80ED" />
+          </View>
         ) : (
           <View style={styles.circleSpacer} />
         )}
@@ -421,7 +713,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   headerTitle: {
-    color: "#ffffff",
+    color: "#052224",
     fontSize: 18,
     fontWeight: "700",
   },
@@ -443,6 +735,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0E3E3E",
     marginBottom: 24,
+    marginTop: 16,
   },
   sectionTitle: {
     fontSize: 14,
@@ -457,10 +750,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   imageWrapper: {
-    width: 70,                
+    width: 70,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
@@ -488,27 +781,19 @@ const styles = StyleSheet.create({
     height: 24,
     marginLeft: 8,
   },
-  circleOuter: {
+  arrowWrapper: {
     width: 24,
     height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#2F80ED",
+    marginLeft: 8,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 8,
-  },
-  circleInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#2F80ED",
   },
   badgeRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
     marginTop: 8,
+    marginBottom: 24,
   },
   badgePill: {
     flexDirection: "row",
@@ -517,7 +802,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    marginBottom: 50,
+    marginBottom: 8,
   },
   badgeEmoji: {
     fontSize: 16,
@@ -530,5 +815,115 @@ const styles = StyleSheet.create({
   badgeDescription: {
     fontSize: 10,
     color: "#4A5B5B",
+  },
+  badgeHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 6,
+  },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#2F80ED",
+  },
+  badgeProgressText: {
+    fontSize: 11,
+    color: "#4A5B5B",
+    marginBottom: 4,
+  },
+  badgeProgressBar: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: "#E3EBEB",
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  badgeProgressFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#00D09E", // same PRIMARY green
+  },
+
+  /* Modal */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+  modalContainer: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
+    maxHeight: "70%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#052224",
+  },
+  modalScrollContent: {
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  modalBadgeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 12,
+  },
+  modalBadgeCard: {
+    width: "48%",
+    backgroundColor: "#E9FFF4",
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: "center",
+  },
+  modalBadgeEmoji: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  modalBadgeName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#16302A",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  modalBadgeDescription: {
+    fontSize: 11,
+    color: "#4A5B5B",
+    textAlign: "center",
+  },
+  modalEmptyState: {
+    alignItems: "center",
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+  },
+  modalEmptyEmoji: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  modalEmptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#16302A",
+    marginBottom: 4,
+  },
+  modalEmptyText: {
+    fontSize: 12,
+    color: "#4A5B5B",
+    textAlign: "center",
   },
 });

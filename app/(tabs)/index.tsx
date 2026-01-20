@@ -1,4 +1,9 @@
 // app/(tabs)/index.tsx
+import {
+  awardBudgetBehaviorBadges,
+  awardCategoryBadges,
+  awardScannerBadges,
+} from "@/utils/badges";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -140,7 +145,7 @@ export default function HomeScreen() {
 
   const [username, setUsername] = useState<string>("Guest");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [monthlyIncome, setMonthlyIncome] = useState<number>(3000);
+  const [monthlyIncome, setMonthlyIncome] = useState<number>(0);
   const [totalExpense, setTotalExpense] = useState<number>(0);
   const [weeklyData, setWeeklyData] = useState<WeeklyPoint[]>(
     Array.from({ length: 7 }, (_, i) => ({
@@ -189,9 +194,19 @@ export default function HomeScreen() {
         setAvatarUrl(profile.avatar_url);
       }
 
-      const incomeNum = parseFloat(profile.monthy_income || "0");
-      if (!Number.isNaN(incomeNum) && incomeNum > 0) {
+      // Handle both numeric and string values
+      const rawIncome = profile.monthy_income;
+
+      let incomeNum: number;
+      if (typeof rawIncome === "number") {
+        incomeNum = rawIncome;
+      } else {
+        incomeNum = parseFloat(rawIncome ?? "0");
+      }
+
+      if (!Number.isNaN(incomeNum)) {
         setMonthlyIncome(incomeNum);
+      } else {
       }
     }
 
@@ -218,6 +233,21 @@ export default function HomeScreen() {
       );
       setTotalExpense(sum);
       setMonthReceiptCount(monthReceipts.length);
+      const effectiveIncome = monthlyIncome > 0 ? monthlyIncome : 1; // avoid divide by 0
+      await awardBudgetBehaviorBadges(sum, effectiveIncome);
+    }
+
+    const { data: allReceipts, error: allReceiptsError } = await supabase
+      .from("receipts")
+      .select("id")
+      .eq("user_id", user.id);
+
+    if (allReceiptsError) {
+      console.log("Home: all receipts error (for badges)", allReceiptsError);
+    } else {
+      const totalReceipts = allReceipts?.length ?? 0;
+      // 🔔 Award scanner badges based on how many receipts user has
+      await awardScannerBadges(totalReceipts);
     }
 
     const { data: lastRows, error: lastError } = await supabase
@@ -357,7 +387,18 @@ export default function HomeScreen() {
       let thisWeekTotal = 0;
       let lastWeekTotal = 0;
 
-      (insightReceipts || []).forEach((row: any) => {
+      (insightReceipts || []).forEach(async (row: any) => {
+        const categoryTotals: Record<string, number> = {};
+
+        for (const cat in thisWeekByCat) {
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + thisWeekByCat[cat];
+        }
+        for (const cat in lastWeekByCat) {
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + lastWeekByCat[cat];
+        }
+
+        // 🍔 Award category badges (foodie, groceries_hero, etc.)
+        await awardCategoryBadges(categoryTotals);
         const date = new Date(row.receipt_date);
         const amount = Number(row.total_amount) || 0;
         const cat = (row.category || "OTHER") as string;
@@ -557,10 +598,10 @@ export default function HomeScreen() {
               style={styles.ctaButton}
               onPress={() => router.push("/chatbot")}
             >
-              <Ionicons
-                name="chatbubble-ellipses-outline"
-                size={22}
-                color="#093030"
+              <Image
+                source={require("../../assets/images/Fin.png")} // change path
+                style={{ width: 22, height: 22 }}
+                resizeMode="contain"
               />
               <Text style={styles.ctaText}>Ask Fin</Text>
             </TouchableOpacity>

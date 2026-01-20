@@ -16,7 +16,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Chatbot() {
   const tabBarHeight = useBottomTabBarHeight();
-  const [messages, setMessages] = useState<{ role: string; text: string }[]>([]);
+  const [messages, setMessages] = useState<{ role: string; text: string }[]>(
+    [],
+  );
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -50,7 +52,7 @@ export default function Chatbot() {
 
       setTimeout(
         () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-        100
+        100,
       );
     }
   };
@@ -60,13 +62,13 @@ export default function Chatbot() {
       {/* Header (same style family as EduFinance) */}
       <View style={styles.header}>
         <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#ffffff" />
+          <Ionicons name="chevron-back" size={24} color="#052224" />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle}>Fin</Text>
 
         <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={22} color="#ffffff" />
+          <Ionicons name="notifications-outline" size={22} color="#052224" />
         </TouchableOpacity>
       </View>
 
@@ -103,17 +105,13 @@ export default function Chatbot() {
                 key={i}
                 style={[
                   styles.message,
-                  msg.role === "user"
-                    ? styles.userMessage
-                    : styles.finMessage,
+                  msg.role === "user" ? styles.userMessage : styles.finMessage,
                 ]}
               >
                 <Text style={styles.messageText}>{msg.text}</Text>
               </View>
             ))}
-            {loading && (
-              <Text style={styles.loadingText}>🤖 Thinking...</Text>
-            )}
+            {loading && <Text style={styles.loadingText}>🤖 Thinking...</Text>}
           </ScrollView>
 
           {/* Input row */}
@@ -161,7 +159,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
     textAlign: "center",
-    color: "#ffffff",
+    color: "#052224",
     lineHeight: 24,
   },
   keyboardAvoiding: {
