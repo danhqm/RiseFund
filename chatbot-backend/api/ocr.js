@@ -8,6 +8,79 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+function categorizeLine(desc = "") {
+  const d = desc.toLowerCase();
+
+  if (
+    d.includes("kfc") ||
+    d.includes("mcd") ||
+    d.includes("mcdonald") ||
+    d.includes("burger king") ||
+    d.includes("starbucks") ||
+    d.includes("restaurant") ||
+    d.includes("cafe")
+  ) {
+    return "FOOD_AND_DRINK";
+  }
+
+  if (
+    d.includes("tesco") ||
+    d.includes("lotus") ||
+    d.includes("jaya grocer") ||
+    d.includes("aeon") ||
+    d.includes("grocer")
+  ) {
+    return "GROCERIES";
+  }
+
+  if (
+    d.includes("grab") ||
+    d.includes("gojek") ||
+    d.includes("taxi") ||
+    d.includes("toll") ||
+    d.includes("petrol") ||
+    d.includes("fuel")
+  ) {
+    return "TRANSPORT";
+  }
+
+  if (
+    d.includes("shopee") ||
+    d.includes("lazada") ||
+    d.includes("zalora") ||
+    d.includes("uniqlo") ||
+    d.includes("mall") ||
+    d.includes("store")
+  ) {
+    return "SHOPPING";
+  }
+
+  if (
+    d.includes("maxis") ||
+    d.includes("celcom") ||
+    d.includes("digi") ||
+    d.includes("tng") ||
+    d.includes("touch n go") ||
+    d.includes("electric") ||
+    d.includes("water") ||
+    d.includes("bill")
+  ) {
+    return "BILLS";
+  }
+
+  if (
+    d.includes("netflix") ||
+    d.includes("spotify") ||
+    d.includes("cinema") ||
+    d.includes("movie") ||
+    d.includes("game")
+  ) {
+    return "ENTERTAINMENT";
+  }
+
+  return "OTHER";
+}
+
 export default async function handler(req, res) {
   console.log("🚀 /api/ocr invoked");
 
@@ -73,12 +146,16 @@ export default async function handler(req, res) {
                 type: "input_text",
                 text:
                   "Extract the receipt data from this image. " +
-                  "Return ONLY valid JSON. No code fences, no commentary. Format: " +
+                  "Return ONLY valid JSON. No code fences, no commentary. " +
+                  "Infer a high-level spending category. Allowed categories: " +
+                  "FOOD_AND_DRINK, GROCERIES, TRANSPORT, SHOPPING, BILLS, ENTERTAINMENT, OTHER. " +
+                  "Format: " +
                   `{
                     "merchant_name": "string",
                     "total_amount": number,
                     "receipt_date": "YYYY-MM-DD",
-                    "items": [{"name": "string", "price": number}]
+                    "items": [{"name": "string", "price": number}],
+                    "category": "FOOD_AND_DRINK" // one of the allowed values
                   }`,
               },
               {
@@ -112,6 +189,23 @@ export default async function handler(req, res) {
       console.log("🧽 CLEANED JSON:", cleaned);
 
       receiptData = JSON.parse(cleaned);
+      const llmCategory = (receiptData.category || "").toUpperCase();
+      const validCategories = [
+        "FOOD_AND_DRINK",
+        "GROCERIES",
+        "TRANSPORT",
+        "SHOPPING",
+        "BILLS",
+        "ENTERTAINMENT",
+        "OTHER",
+      ];
+
+      let finalCategory = validCategories.includes(llmCategory)
+        ? llmCategory
+        : categorizeLine(
+            receiptData.merchant_name ||
+              JSON.stringify(receiptData.items || []),
+          );
     } catch (err) {
       console.error("❌ OpenAI extraction error:", err);
       return res.status(500).json({
@@ -135,6 +229,7 @@ export default async function handler(req, res) {
             receipt_date: receiptData.receipt_date,
             items: receiptData.items,
             image_url: imageUrl,
+            categorty: finalCategory,
           },
         ])
         .select()

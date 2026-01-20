@@ -121,10 +121,45 @@ export default function ReceiptScanner() {
 
           {receiptData && (
             <View style={styles.resultCard}>
-              <Text style={styles.resultTitle}>Receipt Saved</Text>
-              <Text>Merchant: {receiptData.merchant_name}</Text>
-              <Text>Total: RM {receiptData.total_amount}</Text>
-              <Text>Date: {receiptData.receipt_date}</Text>
+              <Text style={styles.resultTitle}>Last Scanned Receipt</Text>
+
+              <Text style={styles.resultLabel}>Merchant</Text>
+              <Text style={styles.resultValue}>
+                {receiptData.merchant_name || "Unknown"}
+              </Text>
+
+              <Text style={styles.resultLabel}>Date</Text>
+              <Text style={styles.resultValue}>
+                {receiptData.receipt_date || "—"}
+              </Text>
+
+              <Text style={styles.resultLabel}>Total Amount</Text>
+              <Text style={styles.resultValue}>
+                RM {Number(receiptData.total_amount || 0).toFixed(2)}
+              </Text>
+
+              {Array.isArray(receiptData.items) &&
+                receiptData.items.length > 0 && (
+                  <>
+                    <Text style={[styles.resultLabel, { marginTop: 10 }]}>
+                      Items
+                    </Text>
+                    {receiptData.items
+                      .slice(0, 3)
+                      .map((item: any, idx: number) => (
+                        <Text key={idx} style={styles.itemText}>
+                          • {item.name} – RM{" "}
+                          {Number(item.price || 0).toFixed(2)}
+                        </Text>
+                      ))}
+
+                    {receiptData.items.length > 3 && (
+                      <Text style={styles.moreItemsText}>
+                        +{receiptData.items.length - 3} more item(s)
+                      </Text>
+                    )}
+                  </>
+                )}
             </View>
           )}
         </View>
@@ -220,22 +255,43 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
-
-  errorText: {
-    marginTop: 12,
-    fontSize: 12,
-    color: "red",
-    textAlign: "center",
-  },
   resultCard: {
-    marginTop: 20,
-    padding: 12,
-    borderRadius: 12,
+    marginTop: 24,
+    width: "100%",
     backgroundColor: "#E9FFF4",
+    borderRadius: 16,
+    padding: 14,
   },
   resultTitle: {
+    fontSize: 15,
     fontWeight: "700",
-    marginBottom: 6,
     color: "#093030",
+    marginBottom: 8,
+  },
+  resultLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4A5B5B",
+    marginTop: 4,
+  },
+  resultValue: {
+    fontSize: 13,
+    color: "#093030",
+  },
+  itemText: {
+    fontSize: 12,
+    color: "#093030",
+  },
+  moreItemsText: {
+    fontSize: 12,
+    color: "#4A5B5B",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#D9534F",
+    textAlign: "center",
   },
 });
