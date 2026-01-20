@@ -133,6 +133,8 @@ export default async function handler(req, res) {
 
     // 2️⃣ Call OpenAI
     let receiptData;
+    let finalCategory = "OTHER"; // 🔹 default defined OUTSIDE try
+
     try {
       console.log("🤖 Sending image to OpenAI for analysis...");
 
@@ -155,7 +157,7 @@ export default async function handler(req, res) {
                     "total_amount": number,
                     "receipt_date": "YYYY-MM-DD",
                     "items": [{"name": "string", "price": number}],
-                    "category": "FOOD_AND_DRINK" // one of the allowed values
+                    "category": "FOOD_AND_DRINK"
                   }`,
               },
               {
@@ -189,6 +191,8 @@ export default async function handler(req, res) {
       console.log("🧽 CLEANED JSON:", cleaned);
 
       receiptData = JSON.parse(cleaned);
+
+      // 🔹 Normalise LLM category + fallback to local rules
       const llmCategory = (receiptData.category || "").toUpperCase();
       const validCategories = [
         "FOOD_AND_DRINK",
@@ -200,7 +204,7 @@ export default async function handler(req, res) {
         "OTHER",
       ];
 
-      let finalCategory = validCategories.includes(llmCategory)
+      finalCategory = validCategories.includes(llmCategory)
         ? llmCategory
         : categorizeLine(
             receiptData.merchant_name ||
@@ -229,7 +233,7 @@ export default async function handler(req, res) {
             receipt_date: receiptData.receipt_date,
             items: receiptData.items,
             image_url: imageUrl,
-            category: finalCategory,
+            category: finalCategory, // ✅ now defined
           },
         ])
         .select()
