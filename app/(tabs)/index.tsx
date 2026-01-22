@@ -5,9 +5,8 @@ import {
   awardScannerBadges,
 } from "@/utils/badges";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
   RefreshControl,
@@ -183,8 +182,6 @@ export default function HomeScreen() {
       );
 
       const text = await resp.text();
-      console.log("Fin insights status:", resp.status);
-      console.log("Fin insights raw response:", text);
 
       // Try parse only if it looks like JSON
       if (!text.trim().startsWith("{") && !text.trim().startsWith("[")) {
@@ -536,11 +533,9 @@ export default function HomeScreen() {
   }, []);
 
   // 🔁 Load data whenever Home tab is focused
-  useFocusEffect(
-    React.useCallback(() => {
-      loadData();
-    }, [loadData]),
-  );
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   // 🔁 Pull-to-refresh handler
   const onRefresh = React.useCallback(async () => {
@@ -772,7 +767,7 @@ export default function HomeScreen() {
             )}
 
             {!aiInsightsLoading && aiInsights && aiInsights.length > 0 && (
-              <View>
+              <View style={{ marginTop: 12 }}>
                 {aiInsights.map((line, index) => (
                   <Text key={index} style={styles.insightsText}>
                     • {line}
@@ -1114,6 +1109,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
     padding: 14,
     borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
     backgroundColor: "#F4FBF7",
     marginBottom: 16,
   },
@@ -1124,8 +1121,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   insightsText: {
-    fontSize: 12,
-    color: "#3B4B4B",
+    fontSize: 11,
+    color: "#093030",
+    lineHeight: 22, // ⬅️ BIG readability win
+    marginBottom: 10, // ⬅️ space between bullets
   },
 
   /* Streak & Badges */
