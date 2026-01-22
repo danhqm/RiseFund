@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -60,47 +61,67 @@ function getWeekKey(date = new Date()) {
 
 const BADGE_CONFIG: Record<string, { emoji: string; labelOverride?: string }> =
   {
-    // 🔥 Streak badges (already in use)
     streak_1: { emoji: "✨" },
     streak_3: { emoji: "🔥" },
     streak_7: { emoji: "🏅" },
     streak_30: { emoji: "🏆" },
 
-    // 💰 Savings progression
     savings_novice: { emoji: "💰" },
     savings_pro: { emoji: "🏦" },
     savings_master: { emoji: "🌈" },
 
-    // 📊 Budgeting progression
     budget_novice: { emoji: "📊" },
     budget_pro: { emoji: "📈" },
     budget_master: { emoji: "💼" },
 
-    // 💳 Debt management progression
     debt_novice: { emoji: "💳" },
     debt_pro: { emoji: "📉" },
     debt_master: { emoji: "🧾" },
 
-    // 🧾 Scanner / receipts (will be awarded from OCR later)
     scanner_first: { emoji: "🧾" },
     scanner_10: { emoji: "🧮" },
     scanner_50: { emoji: "📚" },
 
-    // 🍔 Category fun (also from receipts later)
-    foodie: { emoji: "🍔" }, // lots of FOOD_AND_DRINK
-    groceries_hero: { emoji: "🛒" }, // lots of GROCERIES
+    foodie: { emoji: "🍔" },
+    groceries_hero: { emoji: "🛒" },
 
-    // 💸 Budget behaviour (can be from Home screen later)
     under_budget: { emoji: "📉" },
     super_saver: { emoji: "💎" },
     spender: { emoji: "💸" },
 
-    // 🤖 Fin engagement (later, from chatbot)
     fin_fan: { emoji: "🤖" },
     fin_superfan: { emoji: "🌟" },
   };
 
 const TOTAL_BADGES = Object.keys(BADGE_CONFIG).length;
+const PREVIEW_BADGE_COUNT = 2;
+
+type Goal = {
+  id: string;
+  user_id: string;
+  title: string;
+  notes: string | null;
+  week_start: string; // "YYYY-MM-DD"
+  completed: boolean;
+  created_at: string;
+};
+
+function getMonday(d: Date) {
+  const date = new Date(d);
+  const day = date.getDay(); // Sun=0 ... Sat=6
+  const diff = (day === 0 ? -6 : 1) - day; // shift to Monday
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function toISODateOnly(d: Date) {
+  // returns YYYY-MM-DD in local time
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const da = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${da}`;
+}
 
 export default function EduFinanceScreen() {
   const [savingsCompleted, setSavingsCompleted] = useState(0);
@@ -109,6 +130,10 @@ export default function EduFinanceScreen() {
   const [streakCount, setStreakCount] = useState(0);
   const router = useRouter();
   const [isBadgeModalVisible, setBadgeModalVisible] = useState(false);
+  const [goalModalVisible, setGoalModalVisible] = useState(false);
+  const [newGoalTitle, setNewGoalTitle] = useState("");
+  const [newGoalNotes, setNewGoalNotes] = useState("");
+  const [goals, setGoals] = useState<Goal[]>([]);
 
   const [badges, setBadges] = useState<
     {
@@ -117,6 +142,102 @@ export default function EduFinanceScreen() {
       badge_description: string | null;
     }[]
   >([]);
+
+  const previewBadges = badges.slice(0, PREVIEW_BADGE_COUNT);
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string>(
+    toISODateOnly(getMonday(new Date())),
+  );
+
+  const loadGoals = useCallback(async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+    if (!user) return;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    const { data, error } = await supabase
+      .from("user_goals")
+      .select("*")
+      .eq("user_id", user.id)
+      .gte("week_start", toISODateOnly(monthStart))
+      .lt("week_start", toISODateOnly(monthEnd))
+      .order("week_start", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log("loadGoals error:", error.message);
+      return;
+    }
+
+    setGoals((data as Goal[]) || []);
+  }, []);
+
+  useEffect(() => {
+    loadGoals();
+  }, [loadGoals]);
+
+  const addGoal = useCallback(async () => {
+    const title = newGoalTitle.trim();
+    const notes = newGoalNotes.trim();
+    if (!title) return;
+
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+    if (!user) return;
+
+    const payload = {
+      user_id: user.id,
+      title,
+      notes: notes ? notes : null,
+      week_start: selectedWeekStart, // weekly goal
+      completed: false,
+    };
+
+    const { data, error } = await supabase
+      .from("user_goals")
+      .insert(payload)
+      .select("*")
+      .single();
+
+    if (error) {
+      console.log("addGoal error:", error.message);
+      return;
+    }
+
+    // add new goal on top
+    setGoals((prev) => [data as Goal, ...prev]);
+    setNewGoalTitle("");
+    setNewGoalNotes("");
+    setGoalModalVisible(false);
+  }, [newGoalTitle, newGoalNotes, selectedWeekStart]);
+
+  const toggleGoal = useCallback(async (goal: Goal) => {
+    const nextCompleted = !goal.completed;
+
+    // Optimistic UI
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === goal.id ? { ...g, completed: nextCompleted } : g,
+      ),
+    );
+
+    const { error } = await supabase
+      .from("user_goals")
+      .update({ completed: nextCompleted })
+      .eq("id", goal.id);
+
+    if (error) {
+      console.log("toggleGoal error:", error.message);
+      // rollback if failed
+      setGoals((prev) =>
+        prev.map((g) =>
+          g.id === goal.id ? { ...g, completed: goal.completed } : g,
+        ),
+      );
+    }
+  }, []);
 
   const loadBadges = useCallback(async () => {
     const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -520,7 +641,7 @@ export default function EduFinanceScreen() {
                 </View>
 
                 <View style={styles.badgeRow}>
-                  {badges.map((badge) => {
+                  {previewBadges.map((badge) => {
                     const meta = BADGE_CONFIG[badge.badge_code] || {
                       emoji: "🏆",
                     };
@@ -543,6 +664,124 @@ export default function EduFinanceScreen() {
                 </View>
               </>
             )}
+
+            <View style={{ marginTop: 18 }}>
+              <View style={styles.goalHeaderRow}>
+                <Text style={styles.sectionTitle}>Goals</Text>
+
+                <TouchableOpacity
+                  style={styles.setGoalsBtn}
+                  onPress={() => setGoalModalVisible(true)}
+                >
+                  <Text style={styles.setGoalsBtnText}>Set your goals</Text>
+                </TouchableOpacity>
+              </View>
+
+              {goals.length === 0 ? (
+                <Text style={styles.goalEmptyText}>
+                  No goals yet. Set one to start building better habits 💪
+                </Text>
+              ) : (
+                <View style={styles.goalList}>
+                  {goals.map((goal) => (
+                    <TouchableOpacity
+                      key={goal.id}
+                      style={[
+                        styles.goalCard,
+                        goal.completed && styles.goalCardCompleted,
+                      ]}
+                      onPress={() => toggleGoal(goal)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.goalCardLeft}>
+                        <View
+                          style={[
+                            styles.goalCheck,
+                            goal.completed && styles.goalCheckOn,
+                          ]}
+                        >
+                          {goal.completed ? (
+                            <Text style={styles.goalCheckMark}>✓</Text>
+                          ) : null}
+                        </View>
+                      </View>
+
+                      <View style={styles.goalCardBody}>
+                        <Text
+                          style={[
+                            styles.goalTitle,
+                            goal.completed && styles.goalTitleCompleted,
+                          ]}
+                        >
+                          {goal.title}
+                        </Text>
+
+                        <Text style={styles.goalWeekText}>
+                          Week of {goal.week_start}
+                        </Text>
+
+                        {goal.notes ? (
+                          <Text
+                            style={[
+                              styles.goalNotes,
+                              goal.completed && styles.goalNotesCompleted,
+                            ]}
+                          >
+                            {goal.notes}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <Modal
+              visible={goalModalVisible}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setGoalModalVisible(false)}
+            >
+              <View style={styles.goalModalOverlay}>
+                <View style={styles.goalModalCard}>
+                  <Text style={styles.goalModalTitle}>Set a new goal</Text>
+
+                  <TextInput
+                    value={newGoalTitle}
+                    onChangeText={setNewGoalTitle}
+                    placeholder="Goal title (e.g., Save RM200)"
+                    style={styles.goalModalInput}
+                    placeholderTextColor="#9CA3AF"
+                  />
+
+                  <TextInput
+                    value={newGoalNotes}
+                    onChangeText={setNewGoalNotes}
+                    placeholder="Notes (optional)"
+                    style={[styles.goalModalInput, { height: 80 }]}
+                    placeholderTextColor="#9CA3AF"
+                    multiline
+                  />
+
+                  <View style={styles.goalModalBtnRow}>
+                    <TouchableOpacity
+                      style={[styles.goalModalBtn, styles.goalModalBtnGhost]}
+                      onPress={() => setGoalModalVisible(false)}
+                    >
+                      <Text style={styles.goalModalBtnGhostText}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.goalModalBtn}
+                      onPress={addGoal}
+                    >
+                      <Text style={styles.goalModalBtnText}>Add goal</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
 
             <Text style={styles.subtitle}>Lets Do Some Exercises</Text>
 
@@ -925,5 +1164,173 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#4A5B5B",
     textAlign: "center",
+  },
+  moreBadgesText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "right",
+  },
+  goalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+
+  setGoalsBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#00D09E",
+  },
+
+  setGoalsBtnText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  goalEmptyText: {
+    color: "#6B7280",
+    fontSize: 13,
+    marginTop: 6,
+  },
+
+  goalList: {
+    gap: 10,
+  },
+
+  goalCard: {
+    flexDirection: "row",
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    marginBottom: 20,
+  },
+
+  goalCardCompleted: {
+    opacity: 0.75,
+  },
+
+  goalCardLeft: {
+    marginRight: 10,
+    justifyContent: "center",
+  },
+
+  goalCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: "#9CA3AF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  goalCheckOn: {
+    borderColor: "#16A34A",
+    backgroundColor: "#16A34A",
+  },
+
+  goalCheckMark: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 14,
+    marginTop: -1,
+  },
+
+  goalCardBody: {
+    flex: 1,
+  },
+
+  goalTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+
+  goalTitleCompleted: {
+    textDecorationLine: "line-through",
+    color: "#6B7280",
+  },
+
+  goalNotes: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#6B7280",
+  },
+
+  goalNotesCompleted: {
+    textDecorationLine: "line-through",
+  },
+
+  /* Modal */
+  goalModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    padding: 18,
+  },
+
+  goalModalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+  },
+
+  goalModalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 12,
+    color: "#111827",
+  },
+
+  goalModalInput: {
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: "#111827",
+    marginBottom: 10,
+  },
+
+  goalModalBtnRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 4,
+  },
+
+  goalModalBtn: {
+    backgroundColor: "#00D09E",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+
+  goalModalBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+
+  goalModalBtnGhost: {
+    backgroundColor: "#F3F4F6",
+  },
+
+  goalModalBtnGhostText: {
+    color: "#111827",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  goalWeekText: {
+    marginTop: 2,
+    fontSize: 11,
+    color: "#9CA3AF",
   },
 });

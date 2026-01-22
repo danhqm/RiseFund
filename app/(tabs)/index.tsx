@@ -168,6 +168,40 @@ export default function HomeScreen() {
       ? Math.min(100, Math.round((totalExpense / monthlyIncome) * 100))
       : 0;
 
+  const fetchAIInsights = React.useCallback(async (payload: any) => {
+    try {
+      setAiInsightsLoading(true);
+      setAiInsights(null);
+
+      const resp = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/fin-insights`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const text = await resp.text();
+      console.log("Fin insights status:", resp.status);
+      console.log("Fin insights raw response:", text);
+
+      // Try parse only if it looks like JSON
+      if (!text.trim().startsWith("{") && !text.trim().startsWith("[")) {
+        console.log("Not JSON response (likely HTML). Check API URL/route.");
+        return;
+      }
+
+      const json = JSON.parse(text);
+
+      setAiInsights(json.insights);
+    } catch (err) {
+      console.log("Fin insights fetch error:", err);
+    } finally {
+      setAiInsightsLoading(false);
+    }
+  }, []);
+
   // 🔁 Load data whenever Home tab is focused
   const loadData = React.useCallback(async () => {
     const { data: authData, error: authError } = await supabase.auth.getUser();
@@ -177,6 +211,8 @@ export default function HomeScreen() {
       console.log("Home: no user", authError);
       return;
     }
+
+    let incomeNum = 0;
 
     // 1️⃣ Load profile (username, monthly income, avatar)
     const { data: profile, error: profileError } = await supabase
@@ -197,24 +233,16 @@ export default function HomeScreen() {
       // Handle both numeric and string values
       const rawIncome = profile.monthy_income;
 
-      let incomeNum: number;
-      if (typeof rawIncome === "number") {
-        incomeNum = rawIncome;
-      } else {
-        incomeNum = parseFloat(rawIncome ?? "0");
-      }
+      if (typeof rawIncome === "number") incomeNum = rawIncome;
+      else incomeNum = parseFloat(rawIncome ?? "0");
 
-      if (!Number.isNaN(incomeNum)) {
-        setMonthlyIncome(incomeNum);
-      } else {
-      }
+      if (!Number.isNaN(incomeNum)) setMonthlyIncome(incomeNum);
     }
 
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
 
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const firstOfMonthStr = firstOfMonth.toISOString().split("T")[0];
 
     // 2️⃣ Load this month's *scanned* receipts (for total + count)
     const { data: monthReceipts, error: monthError } = await supabase
@@ -233,7 +261,7 @@ export default function HomeScreen() {
       );
       setTotalExpense(sum);
       setMonthReceiptCount(monthReceipts.length);
-      const effectiveIncome = monthlyIncome > 0 ? monthlyIncome : 1; // avoid divide by 0
+      const effectiveIncome = incomeNum > 0 ? incomeNum : 1; // avoid divide by 0
       await awardBudgetBehaviorBadges(sum, effectiveIncome);
     }
 
@@ -301,166 +329,209 @@ export default function HomeScreen() {
         { label: "Sun", total: 0, categories: {} },
       ];
 
-      (weekReceipts || []).forEach((row: any) => {
-        const d = new Date(row.created_at);
-        const js = d.getDay(); // 0=Sun .. 6=Sat
-        const idx = js === 0 ? 6 : js - 1; // Sun → 6, Mon → 0, ...
+      const { data: weekReceipts, error: weekError } = await supabase
+        .from("receipts")
+        .select("total_amount, created_at, category")
+        .eq("user_id", user.id)
+        .gte("created_at", startOfWeek.toISOString())
+        .lt("created_at", endOfWeek.toISOString());
 
-        const amount = Number(row.total_amount || 0);
-        const rawCat = (row.category || "OTHER") as string;
-        const cat = CATEGORY_COLORS[rawCat] ? rawCat : "OTHER";
+      if (weekError) {
+        console.log("Home: week receipts error", weekError);
+      } else {
+        (weekReceipts || []).forEach((row: any) => {
+          const d = new Date(row.created_at);
+          const js = d.getDay();
+          const idx = js === 0 ? 6 : js - 1;
 
-        points[idx].total += amount;
-        points[idx].categories[cat] =
-          (points[idx].categories[cat] || 0) + amount;
-      });
+          const amount = Number(row.total_amount || 0);
+          const rawCat = (row.category || "OTHER") as string;
+          const cat = CATEGORY_COLORS[rawCat] ? rawCat : "OTHER";
 
-      setWeeklyData(points);
-    }
+          points[idx].total += amount;
+          points[idx].categories[cat] =
+            (points[idx].categories[cat] || 0) + amount;
+        });
 
-    const fetchAIInsights = async (userId: string) => {
-      await fetchAIInsights(user.id);
-      try {
-        setAiInsightsLoading(true);
-        setAiInsights(null);
-
-        const resp = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/api/fin-insights`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId }),
-          },
-        );
-
-        const json = await resp.json();
-        if (!json.success || !Array.isArray(json.insights)) {
-          console.log("Fin insights error / bad shape:", json);
-          return;
-        }
-
-        setAiInsights(json.insights);
-      } catch (err) {
-        console.log("Fin insights fetch error:", err);
-      } finally {
-        setAiInsightsLoading(false);
+        setWeeklyData(points);
       }
-    };
+      const weeklyTotal = points.reduce((acc, p) => acc + p.total, 0);
 
-    // 4️⃣ Load streaks
-    const { data: streakRows, error: streakError } = await supabase
-      .from("user_streaks")
-      .select("date")
-      .eq("user_id", user.id);
+      // Top 3 categories this week
+      const byCat: Record<string, number> = {};
+      points.forEach((p) => {
+        Object.entries(p.categories).forEach(([cat, amt]) => {
+          byCat[cat] = (byCat[cat] || 0) + Number(amt || 0);
+        });
+      });
+      const topCategories = Object.entries(byCat)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([category, amount]) => ({
+          category,
+          amount: Number(amount.toFixed(2)),
+        }));
 
-    if (streakError) {
-      console.log("Home: streak error", streakError);
-    } else if (streakRows) {
-      const dates = streakRows.map((r: any) => r.date as string);
-      setStreakCount(computeStreak(dates));
-    }
+      // Week start string for goals query (YYYY-MM-DD)
+      const weekStartStr = startOfWeek.toISOString().split("T")[0];
+      const weekEndStr = endOfWeek.toISOString().split("T")[0];
 
-    // 5️⃣ Load last 14 days receipts for category-based insights
-    const fourteenDaysAgoStr = getDateNDaysAgo(13); // 14 days inclusive
+      // Fetch this week goals
+      const { data: weekGoals, error: goalsErr } = await supabase
+        .from("user_goals")
+        .select("title, notes, completed, week_start")
+        .eq("user_id", user.id)
+        .eq("week_start", weekStartStr);
 
-    const { data: insightReceipts, error: insightError } = await supabase
-      .from("receipts")
-      .select("total_amount, category, receipt_date")
-      .eq("user_id", user.id)
-      .gte("created_at", fourteenDaysAgoStr)
-      .lte("created_at", todayStr);
+      if (goalsErr) console.log("Home: goals error", goalsErr);
 
-    if (insightError) {
-      console.log("Home: insight receipts error", insightError);
-      setInsights([]);
-    } else if (insightReceipts) {
-      const now = new Date();
-      const startOfThisWeek = new Date(now);
-      startOfThisWeek.setDate(now.getDate() - now.getDay()); // Sunday = 0
-      startOfThisWeek.setHours(0, 0, 0, 0);
+      // Estimate weekly income from monthly (simple)
+      const weeklyIncomeEstimate = incomeNum > 0 ? incomeNum / 4 : 0;
 
-      const startOfLastWeek = new Date(startOfThisWeek);
-      startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+      // Build payload for AI
+      const payload = {
+        userId: user.id,
+        currency: "MYR",
+        month: today.getMonth() + 1,
+        year: today.getFullYear(),
 
-      const thisWeekByCat: Record<string, number> = {};
-      const lastWeekByCat: Record<string, number> = {};
-      let thisWeekTotal = 0;
-      let lastWeekTotal = 0;
+        monthlyIncome: incomeNum,
+        weeklyIncomeEstimate,
+        weekStartStr,
+        weekEndStr,
+        weeklyExpense: Number(weeklyTotal.toFixed(2)),
+        topSpendCategories: topCategories,
 
-      (insightReceipts || []).forEach(async (row: any) => {
-        const categoryTotals: Record<string, number> = {};
+        // keep it small & readable for the AI
+        weeklyGoals: (weekGoals || []).map((g: any) => ({
+          title: g.title,
+          notes: g.notes,
+          completed: g.completed,
+          week_start: g.week_start,
+        })),
+      };
 
+      await fetchAIInsights(payload);
+
+      // 4️⃣ Load streaks
+      const { data: streakRows, error: streakError } = await supabase
+        .from("user_streaks")
+        .select("date")
+        .eq("user_id", user.id);
+
+      if (streakError) {
+        console.log("Home: streak error", streakError);
+      } else if (streakRows) {
+        const dates = streakRows.map((r: any) => r.date as string);
+        setStreakCount(computeStreak(dates));
+      }
+
+      // 5️⃣ Load last 14 days receipts for category-based insights
+      const fourteenDaysAgoStr = getDateNDaysAgo(13); // 14 days inclusive
+
+      const { data: insightReceipts, error: insightError } = await supabase
+        .from("receipts")
+        .select("total_amount, category, receipt_date")
+        .eq("user_id", user.id)
+        .gte("created_at", fourteenDaysAgoStr)
+        .lte("created_at", todayStr);
+
+      if (insightError) {
+        console.log("Home: insight receipts error", insightError);
+        setInsights([]);
+      } else if (insightReceipts) {
+        const now = new Date();
+        const startOfThisWeek = new Date(now);
+        startOfThisWeek.setDate(now.getDate() - now.getDay()); // Sunday = 0
+        startOfThisWeek.setHours(0, 0, 0, 0);
+
+        const startOfLastWeek = new Date(startOfThisWeek);
+        startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+
+        const thisWeekByCat: Record<string, number> = {};
+        const lastWeekByCat: Record<string, number> = {};
+        let thisWeekTotal = 0;
+        let lastWeekTotal = 0;
+
+        (insightReceipts || []).forEach(async (row: any) => {
+          const categoryTotals: Record<string, number> = {};
+
+          for (const cat in thisWeekByCat) {
+            categoryTotals[cat] =
+              (categoryTotals[cat] || 0) + thisWeekByCat[cat];
+          }
+          for (const cat in lastWeekByCat) {
+            categoryTotals[cat] =
+              (categoryTotals[cat] || 0) + lastWeekByCat[cat];
+          }
+
+          // 🍔 Award category badges (foodie, groceries_hero, etc.)
+          await awardCategoryBadges(categoryTotals);
+          const date = new Date(row.receipt_date);
+          const amount = Number(row.total_amount) || 0;
+          const cat = (row.category || "OTHER") as string;
+
+          if (date >= startOfThisWeek) {
+            thisWeekByCat[cat] = (thisWeekByCat[cat] || 0) + amount;
+            thisWeekTotal += amount;
+          } else if (date >= startOfLastWeek && date < startOfThisWeek) {
+            lastWeekByCat[cat] = (lastWeekByCat[cat] || 0) + amount;
+            lastWeekTotal += amount;
+          }
+        });
+
+        const newInsights: string[] = [];
+
+        // 🏅 Top category this week
+        let topCategory: string | null = null;
+        let topAmount = 0;
         for (const cat in thisWeekByCat) {
-          categoryTotals[cat] = (categoryTotals[cat] || 0) + thisWeekByCat[cat];
+          if (thisWeekByCat[cat] > topAmount) {
+            topAmount = thisWeekByCat[cat];
+            topCategory = cat;
+          }
         }
-        for (const cat in lastWeekByCat) {
-          categoryTotals[cat] = (categoryTotals[cat] || 0) + lastWeekByCat[cat];
-        }
-
-        // 🍔 Award category badges (foodie, groceries_hero, etc.)
-        await awardCategoryBadges(categoryTotals);
-        const date = new Date(row.receipt_date);
-        const amount = Number(row.total_amount) || 0;
-        const cat = (row.category || "OTHER") as string;
-
-        if (date >= startOfThisWeek) {
-          thisWeekByCat[cat] = (thisWeekByCat[cat] || 0) + amount;
-          thisWeekTotal += amount;
-        } else if (date >= startOfLastWeek && date < startOfThisWeek) {
-          lastWeekByCat[cat] = (lastWeekByCat[cat] || 0) + amount;
-          lastWeekTotal += amount;
-        }
-      });
-
-      const newInsights: string[] = [];
-
-      // 🏅 Top category this week
-      let topCategory: string | null = null;
-      let topAmount = 0;
-      for (const cat in thisWeekByCat) {
-        if (thisWeekByCat[cat] > topAmount) {
-          topAmount = thisWeekByCat[cat];
-          topCategory = cat;
-        }
-      }
-      if (topCategory) {
-        newInsights.push(
-          `🏅 Highest spending this week: ${topCategory
-            .replace(/_/g, " ")
-            .toLowerCase()
-            .replace(/\b\w/g, (c) => c.toUpperCase())} (RM${topAmount.toFixed(
-            2,
-          )}).`,
-        );
-      }
-
-      // 📊 Week-over-week total change
-      if (lastWeekTotal > 0) {
-        const diff = thisWeekTotal - lastWeekTotal;
-        const pct = Math.round((diff / lastWeekTotal) * 100);
-
-        if (pct > 0) {
+        if (topCategory) {
           newInsights.push(
-            `📈 Your total spending is up ${pct}% compared to last week.`,
+            `🏅 Highest spending this week: ${topCategory
+              .replace(/_/g, " ")
+              .toLowerCase()
+              .replace(/\b\w/g, (c) => c.toUpperCase())} (RM${topAmount.toFixed(
+              2,
+            )}).`,
           );
-        } else if (pct < 0) {
-          newInsights.push(
-            `📉 Your total spending is down ${Math.abs(
-              pct,
-            )}% compared to last week. Nice job!`,
-          );
-        } else {
-          newInsights.push(`⚖️ Your spending is about the same as last week.`);
         }
-      } else if (thisWeekTotal > 0) {
-        newInsights.push(
-          `🆕 You started tracking this week with RM${thisWeekTotal.toFixed(
-            2,
-          )} recorded.`,
-        );
-      }
 
-      setInsights(newInsights);
+        // 📊 Week-over-week total change
+        if (lastWeekTotal > 0) {
+          const diff = thisWeekTotal - lastWeekTotal;
+          const pct = Math.round((diff / lastWeekTotal) * 100);
+
+          if (pct > 0) {
+            newInsights.push(
+              `📈 Your total spending is up ${pct}% compared to last week.`,
+            );
+          } else if (pct < 0) {
+            newInsights.push(
+              `📉 Your total spending is down ${Math.abs(
+                pct,
+              )}% compared to last week. Nice job!`,
+            );
+          } else {
+            newInsights.push(
+              `⚖️ Your spending is about the same as last week.`,
+            );
+          }
+        } else if (thisWeekTotal > 0) {
+          newInsights.push(
+            `🆕 You started tracking this week with RM${thisWeekTotal.toFixed(
+              2,
+            )} recorded.`,
+          );
+        }
+
+        setInsights(newInsights);
+      }
     }
   }, []);
 
@@ -997,7 +1068,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   chartTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: "700",
     color: "#093030",
   },
@@ -1047,7 +1118,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   insightsTitle: {
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: "700",
     color: "#093030",
     marginBottom: 4,
@@ -1110,7 +1181,7 @@ const styles = StyleSheet.create({
   },
 
   lastReceiptTitle: {
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: "700",
     color: "#093030",
     marginBottom: 8,

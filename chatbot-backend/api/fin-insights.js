@@ -8,6 +8,20 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+function safeNumber(n, fallback = 0) {
+  const x = typeof n === "number" ? n : parseFloat(String(n ?? ""));
+  return Number.isFinite(x) ? x : fallback;
+}
+
+// Optional: try to extract RM amount from titles like "Save RM400"
+function extractRMAmount(text) {
+  if (!text) return null;
+  const m = String(text).match(/rm\s*([0-9]+(?:\.[0-9]+)?)/i);
+  if (!m) return null;
+  const val = parseFloat(m[1]);
+  return Number.isFinite(val) ? val : null;
+}
+
 export default async function handler(req, res) {
   console.log("🤖 /api/fin-insights invoked");
 
@@ -18,43 +32,109 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId } = req.body || {};
+    const body = req.body || {};
+    const { userId } = body;
+
     if (!userId) {
       return res.status(400).json({ success: false, error: "Missing userId" });
     }
 
-    // 1️⃣ Get recent receipts for this user (last 60 days, max 50 rows)
-    const today = new Date();
-    const sixtyDaysAgo = new Date();
-    sixtyDaysAgo.setDate(today.getDate() - 60);
+    // Prefer client-computed weekly stats (fast + consistent with your chart)
+    let {
+      monthlyIncome,
+      weeklyIncomeEstimate,
+      weeklyExpense,
+      topSpendCategories,
+      weeklyGoals,
+      weekStartStr,
+      weekEndStr,
+    } = body;
 
-    const { data: receipts, error: receiptsError } = await supabase
-      .from("receipts")
-      .select("merchant_name, total_amount, category, receipt_date, created_at")
-      .eq("user_id", userId)
-      .gte("receipt_date", sixtyDaysAgo.toISOString().split("T")[0])
-      .order("receipt_date", { ascending: false })
-      .limit(50);
+    // If monthlyIncome not sent, fetch from users table (fallback)
+    if (monthlyIncome === undefined || monthlyIncome === null) {
+      const { data: profile, error: profileErr } = await supabase
+        .from("users")
+        .select("monthly_income")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-    if (receiptsError) {
-      console.error("❌ receiptsError:", receiptsError);
-      return res
-        .status(500)
-        .json({ success: false, error: "Failed to load receipts" });
+      if (profileErr) console.log("⚠️ profile income fetch error:", profileErr);
+
+      monthlyIncome = safeNumber(profile?.monthly_income, 0);
+    } else {
+      monthlyIncome = safeNumber(monthlyIncome, 0);
     }
 
-    if (!receipts || receipts.length === 0) {
+    weeklyIncomeEstimate =
+      weeklyIncomeEstimate !== undefined && weeklyIncomeEstimate !== null
+        ? safeNumber(
+            weeklyIncomeEstimate,
+            monthlyIncome > 0 ? monthlyIncome / 4 : 0,
+          )
+        : monthlyIncome > 0
+          ? monthlyIncome / 4
+          : 0;
+
+    weeklyExpense = safeNumber(weeklyExpense, 0);
+
+    topSpendCategories = Array.isArray(topSpendCategories)
+      ? topSpendCategories
+      : [];
+    weeklyGoals = Array.isArray(weeklyGoals) ? weeklyGoals : [];
+
+    // If the client didn’t send goals, fetch this week goals (fallback)
+    if (!weeklyGoals.length && weekStartStr) {
+      const { data: goals, error: goalsErr } = await supabase
+        .from("user_goals")
+        .select("title, notes, completed, week_start")
+        .eq("user_id", userId)
+        .eq("week_start", weekStartStr);
+
+      if (goalsErr) console.log("⚠️ goals fetch error:", goalsErr);
+      weeklyGoals = goals || [];
+    }
+
+    // If nothing to analyze yet
+    if (!monthlyIncome && weeklyExpense === 0 && weeklyGoals.length === 0) {
       return res.json({
         success: true,
         insights: [
-          "Fin couldn't find any receipts yet. Scan a few receipts to let Fin analyse your spending.",
+          "Set your monthly income and scan a few receipts so Fin can personalize insights for you.",
         ],
       });
     }
 
-    const receiptsJson = JSON.stringify(receipts);
+    // Build compact context for AI
+    const goalsForAI = weeklyGoals.map((g) => ({
+      title: g.title,
+      notes: g.notes,
+      completed: !!g.completed,
+      // optional: amount extracted if present
+      target_rm: extractRMAmount(g.title) ?? extractRMAmount(g.notes),
+      week_start: g.week_start,
+    }));
 
-    // 2️⃣ Call OpenAI to generate insights
+    const context = {
+      currency: "MYR",
+      timeframe: {
+        weekStart: weekStartStr ?? null,
+        weekEnd: weekEndStr ?? null,
+      },
+      income: {
+        monthly_rm: Number(monthlyIncome.toFixed(2)),
+        weekly_estimate_rm: Number(weeklyIncomeEstimate.toFixed(2)),
+      },
+      spending: {
+        weekly_total_rm: Number(weeklyExpense.toFixed(2)),
+        top_categories: topSpendCategories.map((c) => ({
+          category: c.category,
+          amount_rm: Number(safeNumber(c.amount, 0).toFixed(2)),
+        })),
+      },
+      goals: goalsForAI,
+    };
+
+    // ✅ AI Prompt (short, non-paragraph, personalized, playful but responsible)
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
       input: [
@@ -64,28 +144,27 @@ export default async function handler(req, res) {
             {
               type: "input_text",
               text:
-                "You are Fin, an AI financial coach helping a young adult improve their money habits. " +
-                "You will receive their recent receipt data as JSON from a mobile app. " +
-                "Your job is to generate 3 to 5 short, friendly insights about their spending. " +
-                "Focus on patterns (top categories, increases/decreases, frequency) and give practical hints. " +
-                "Use a casual but respectful tone suitable for a Gen Z student. " +
-                "Return ONLY valid JSON: an array of strings. No explanations, no markdown, no extra fields.\n\n" +
-                "Here is the JSON array of receipts:\n" +
-                receiptsJson +
-                "\n\nExpected output format example:\n" +
-                '["You spent more on food delivery this week compared to last week.", "Most of your spending is in FOOD_AND_DRINK."]',
+                "You are Fin, a friendly AI finance coach in a Malaysian student finance app.\n" +
+                "Use the user's weekly spending, monthly income, and weekly goals to give PERSONALIZED recommendations.\n\n" +
+                "Rules:\n" +
+                "- Write 3 to 5 bullet-style insights (short sentences, not long paragraphs).\n" +
+                "- Be specific with RM amounts from the data.\n" +
+                "- If the user reached a savings goal, celebrate. You can be playful, but DO NOT encourage reckless spending.\n" +
+                "  (Instead say something like: 'You hit your goal — nice! Keep a small buffer, and you can treat yourself within RMX.')\n" +
+                "- If not reached, give 1–2 actionable suggestions tied to their top spending category.\n" +
+                "- If monthly income is missing/0, gently ask them to set it.\n" +
+                "- Return ONLY valid JSON: an array of strings. No markdown, no extra fields.\n\n" +
+                "User data JSON:\n" +
+                JSON.stringify(context, null, 2) +
+                "\n\nReturn JSON array only like:\n" +
+                '["Insight 1", "Insight 2", "Insight 3"]',
             },
           ],
         },
       ],
     });
 
-    console.log(
-      "🔍 Raw OpenAI insights response:",
-      JSON.stringify(response, null, 2),
-    );
-
-    const first = response.output[0]?.content[0];
+    const first = response.output?.[0]?.content?.[0];
     const outputText =
       (first && "text" in first && first.text) ||
       (typeof first === "string" ? first : "");
@@ -102,15 +181,25 @@ export default async function handler(req, res) {
     let insights;
     try {
       insights = JSON.parse(cleaned);
-      if (!Array.isArray(insights)) {
-        throw new Error("Output is not an array");
-      }
+      if (!Array.isArray(insights)) throw new Error("Output is not an array");
+      insights = insights
+        .filter((x) => typeof x === "string")
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .slice(0, 5);
     } catch (parseErr) {
       console.error("❌ Failed to parse AI insights JSON:", parseErr, cleaned);
       return res.status(500).json({
         success: false,
         error: "Failed to parse AI insights output",
       });
+    }
+
+    // Fallback if AI returns empty
+    if (!insights.length) {
+      insights = [
+        "Fin couldn’t generate insights right now — try again after scanning more receipts.",
+      ];
     }
 
     return res.json({ success: true, insights });

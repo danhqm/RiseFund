@@ -85,7 +85,6 @@ export default function ReceiptScanner() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header (same style as EduFinance) */}
       <View style={styles.header}>
         <TouchableOpacity>
           <Ionicons name="chevron-back" size={24} color="#052224" />
@@ -98,7 +97,6 @@ export default function ReceiptScanner() {
         </TouchableOpacity>
       </View>
 
-      {/* White rounded page (same height/feel as EduFinance) */}
       <View style={styles.innerContainer}>
         <View style={styles.cardContent}>
           <Text style={styles.cardTitle}>
@@ -210,7 +208,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Same idea as EduFinance: rounded white area filling the rest
   innerContainer: {
     flex: 1,
     backgroundColor: "#ffffff",

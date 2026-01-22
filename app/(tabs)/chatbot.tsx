@@ -32,11 +32,14 @@ export default function Chatbot() {
     setLoading(true);
 
     try {
-      const response = await fetch(process.env.EXPO_PUBLIC_API_URL!, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
-      });
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/chat`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: input }),
+        },
+      );
 
       const data = await response.json();
       const botMessage = { role: "assistant", text: data.text };

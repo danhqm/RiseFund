@@ -5,7 +5,8 @@ let chatHistory = [];
 const MAX_HISTORY = 5;
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "POST")
+    return res.status(405).json({ error: "Method not allowed" });
 
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: "No message provided" });
@@ -14,19 +15,25 @@ export default async function handler(req, res) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     chatHistory.push({ role: "user", content: message });
-    if (chatHistory.length > MAX_HISTORY * 2) chatHistory = chatHistory.slice(-MAX_HISTORY * 2);
+    if (chatHistory.length > MAX_HISTORY * 2)
+      chatHistory = chatHistory.slice(-MAX_HISTORY * 2);
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      temperature: 0.8,
-      messages: [
-        { role: "system", content: "Your name is Fin the helpful Financial mentor. You answer questions about your finances and give the most suitable advice according to the user. Give your responses short and concise." },
-        ...chatHistory,
+    const response = await openai.responses.create({
+      model: "gpt-4.1-mini",
+      input: [
+        {
+          role: "system",
+          content:
+            "Your name is Fin, a helpful financial mentor. Keep responses short, clear, and practical. Use MYR (RM) where relevant.",
+        },
+        ...chatHistory.map((m) => ({ role: m.role, content: m.content })),
       ],
     });
 
-    const botReply = response.choices[0].message.content;
-    chatHistory.push({ role: "assistant", content: botReply });
+    const first = response.output?.[0]?.content?.[0];
+    const botReply =
+      (first && "text" in first && first.text) ||
+      "Sorry — I couldn’t generate a reply.";
 
     res.status(200).json({ success: true, text: botReply });
   } catch (err) {
