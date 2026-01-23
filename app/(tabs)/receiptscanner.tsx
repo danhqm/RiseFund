@@ -1,9 +1,10 @@
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,13 +13,54 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const OCR_API_URL = "https://rise-fund-6r5s.vercel.app/api/ocr";
+const OCR_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/ocr`;
 
 export default function ReceiptScanner() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recentReceipts, setRecentReceipts] = useState<any[]>([]);
+  const [allReceipts, setAllReceipts] = useState<any[]>([]);
+  const [viewAllVisible, setViewAllVisible] = useState(false);
+  const [allLoading, setAllLoading] = useState(false);
+
+  useEffect(() => {
+    loadRecentReceipts();
+  }, []);
+
+  const loadRecentReceipts = async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from("receipts")
+      .select(
+        "id, merchant_name, total_amount, receipt_date, category, created_at",
+      )
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(2);
+
+    if (!error) setRecentReceipts(data || []);
+  };
+
+  const loadAllReceipts = async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData?.user?.id;
+    if (!userId) return;
+
+    setAllLoading(true);
+    const { data, error } = await supabase
+      .from("receipts")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (!error) setAllReceipts(data || []);
+    setAllLoading(false);
+  };
 
   const pickImage = async () => {
     setError(null);
@@ -103,7 +145,6 @@ export default function ReceiptScanner() {
             Upload A Receipt To Automatically{"\n"}Track Your Spending
           </Text>
 
-          {/* Dummy / preview receipt image */}
           <View style={styles.receiptPreview}>
             <Image
               source={require("../../assets/images/receipt-check.png")}
@@ -114,7 +155,6 @@ export default function ReceiptScanner() {
 
           <Text style={styles.helperText}>Clear image works the best.</Text>
 
-          {/* Scan button (logic same as before; hook pickImage if/when you want) */}
           <TouchableOpacity style={styles.scanButton} onPress={pickImage}>
             <Ionicons name="scan-outline" size={20} color="#093030" />
             <Text style={styles.scanButtonText}>
@@ -177,8 +217,101 @@ export default function ReceiptScanner() {
               </View>
             </ScrollView>
           )}
+          {recentReceipts.length > 0 && (
+            <View style={styles.recentSection}>
+              <View style={styles.recentHeader}>
+                <Text style={styles.recentTitle}>Recent Scans</Text>
+
+                <TouchableOpacity
+                  onPress={async () => {
+                    setViewAllVisible(true);
+                    await loadAllReceipts();
+                  }}
+                >
+                  <Text style={styles.viewAllText}>View all</Text>
+                </TouchableOpacity>
+              </View>
+
+              {recentReceipts.map((r) => (
+                <View key={r.id} style={styles.recentCard}>
+                  <Text style={styles.recentMerchant}>
+                    {r.merchant_name || "Unknown merchant"}
+                  </Text>
+
+                  <Text style={styles.recentMeta}>
+                    {r.receipt_date || "—"} • RM
+                    {Number(r.total_amount || 0).toFixed(2)}
+                  </Text>
+
+                  <Text style={styles.recentCategory}>
+                    {r.category
+                      ? r.category
+                          .replace(/_/g, " ")
+                          .toLowerCase()
+                          .replace(/\b\w/g, (c: string) => c.toUpperCase())
+                      : "Not categorized"}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </View>
+      <Modal visible={viewAllVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>All Receipts</Text>
+
+              <TouchableOpacity onPress={() => setViewAllVisible(false)}>
+                <Ionicons name="close" size={22} color="#093030" />
+              </TouchableOpacity>
+            </View>
+
+            {allLoading ? (
+              <Text style={{ marginTop: 10 }}>Loading...</Text>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {allReceipts.map((r) => (
+                  <View key={r.id} style={styles.allReceiptCard}>
+                    <Text style={styles.recentMerchant}>
+                      {r.merchant_name || "Unknown merchant"}
+                    </Text>
+
+                    <Text style={styles.recentMeta}>
+                      {r.receipt_date || "—"} • RM
+                      {Number(r.total_amount || 0).toFixed(2)}
+                    </Text>
+
+                    <Text style={styles.recentCategory}>
+                      {r.category
+                        ? r.category
+                            .replace(/_/g, " ")
+                            .toLowerCase()
+                            .replace(/\b\w/g, (c: string) => c.toUpperCase())
+                        : "Not categorized"}
+                    </Text>
+
+                    {Array.isArray(r.items) && r.items.length > 0 && (
+                      <View style={{ marginTop: 8 }}>
+                        <Text style={styles.resultLabel}>Items</Text>
+
+                        {r.items.map((item: any, idx: number) => (
+                          <Text key={idx} style={styles.itemText}>
+                            • {item.name || "Item"} – RM{" "}
+                            {Number(item.price || 0).toFixed(2)}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                ))}
+                <View style={{ height: 20 }} />
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -311,5 +444,87 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#D9534F",
     textAlign: "center",
+  },
+  recentSection: {
+    width: "100%",
+    marginTop: 18,
+  },
+
+  recentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  recentTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#093030",
+  },
+
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: PRIMARY,
+  },
+
+  recentCard: {
+    backgroundColor: "#E9FFF4",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+  },
+
+  recentMerchant: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#093030",
+  },
+
+  recentMeta: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#4A5B5B",
+  },
+
+  recentCategory: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#093030",
+    fontWeight: "600",
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+
+  modalCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 16,
+    maxHeight: "85%",
+  },
+
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#093030",
+  },
+
+  allReceiptCard: {
+    backgroundColor: "#E9FFF4",
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 12,
   },
 });

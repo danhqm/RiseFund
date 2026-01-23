@@ -13,7 +13,6 @@ function safeNumber(n, fallback = 0) {
   return Number.isFinite(x) ? x : fallback;
 }
 
-// Optional: try to extract RM amount from titles like "Save RM400"
 function extractRMAmount(text) {
   if (!text) return null;
   const m = String(text).match(/rm\s*([0-9]+(?:\.[0-9]+)?)/i);
@@ -39,7 +38,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: "Missing userId" });
     }
 
-    // Prefer client-computed weekly stats (fast + consistent with your chart)
     let {
       monthlyIncome,
       weeklyIncomeEstimate,
@@ -50,7 +48,6 @@ export default async function handler(req, res) {
       weekEndStr,
     } = body;
 
-    // If monthlyIncome not sent, fetch from users table (fallback)
     if (monthlyIncome === undefined || monthlyIncome === null) {
       const { data: profile, error: profileErr } = await supabase
         .from("users")
@@ -82,7 +79,6 @@ export default async function handler(req, res) {
       : [];
     weeklyGoals = Array.isArray(weeklyGoals) ? weeklyGoals : [];
 
-    // If the client didn’t send goals, fetch this week goals (fallback)
     if (!weeklyGoals.length && weekStartStr) {
       const { data: goals, error: goalsErr } = await supabase
         .from("user_goals")
@@ -94,7 +90,6 @@ export default async function handler(req, res) {
       weeklyGoals = goals || [];
     }
 
-    // If nothing to analyze yet
     if (!monthlyIncome && weeklyExpense === 0 && weeklyGoals.length === 0) {
       return res.json({
         success: true,
@@ -104,12 +99,11 @@ export default async function handler(req, res) {
       });
     }
 
-    // Build compact context for AI
     const goalsForAI = weeklyGoals.map((g) => ({
       title: g.title,
       notes: g.notes,
       completed: !!g.completed,
-      // optional: amount extracted if present
+
       target_rm: extractRMAmount(g.title) ?? extractRMAmount(g.notes),
       week_start: g.week_start,
     }));
@@ -134,7 +128,6 @@ export default async function handler(req, res) {
       goals: goalsForAI,
     };
 
-    // ✅ AI Prompt (short, non-paragraph, personalized, playful but responsible)
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
       input: [
@@ -147,7 +140,7 @@ export default async function handler(req, res) {
                 "You are Fin, a friendly AI finance coach in a Malaysian student finance app.\n" +
                 "Use the user's weekly spending, monthly income, and weekly goals to give PERSONALIZED recommendations.\n\n" +
                 "Rules:\n" +
-                "- Write 3 to 5 bullet-style insights (short sentences, not long paragraphs).\n" +
+                "- Write 2 bullet-style insights (short sentences, not long paragraphs).\n" +
                 "- Be specific with RM amounts from the data.\n" +
                 "- If the user reached a savings goal, celebrate. You can be playful, but DO NOT encourage reckless spending.\n" +
                 "  (Instead say something like: 'You hit your goal — nice! Keep a small buffer, and you can treat yourself within RMX.')\n" +
