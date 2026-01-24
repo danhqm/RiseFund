@@ -26,6 +26,9 @@ export default function EditProfileScreen() {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [mobile, setMobile] = useState("");
+  const [dob, setDob] = useState(""); // store as "YYYY-MM-DD"
+  const [monthlyIncome, setMonthlyIncome] = useState("");
 
   // Load current username
   useEffect(() => {
@@ -45,14 +48,17 @@ export default function EditProfileScreen() {
 
       const { data: profile, error: profileError } = await supabase
         .from("users")
-        .select("username, user_id")
+        .select("username, mobile, dob, monthy_income, user_id")
         .eq("user_id", user.id)
         .single();
 
-      if (profileError) {
-        console.log("Profile load error:", profileError);
-      } else if (profile?.username) {
-        setUsername(profile.username);
+      if (!profileError && profile) {
+        setUsername(profile.username ?? "");
+        setMobile(profile.mobile ?? "");
+        setDob(profile.dob ?? ""); // if it's a date, Supabase returns "YYYY-MM-DD"
+        setMonthlyIncome(
+          profile.monthy_income ? String(profile.monthy_income) : "",
+        );
       }
 
       setLoading(false);
@@ -60,6 +66,13 @@ export default function EditProfileScreen() {
 
     loadProfile();
   }, []);
+
+  // monthly income numeric check
+  if (monthlyIncome && isNaN(Number(monthlyIncome))) {
+    Alert.alert("Error", "Monthly income must be a number");
+    setSaving(false);
+    return;
+  }
 
   const handleSave = async () => {
     if (!username.trim()) {
@@ -80,10 +93,17 @@ export default function EditProfileScreen() {
       return;
     }
 
-    // Update users table
+    // 👇 PUT THE PAYLOAD HERE
+    const payload = {
+      username: username.trim(),
+      mobile: mobile.trim() || null,
+      dob: dob.trim() || null,
+      monthy_income: monthlyIncome.trim() || null,
+    };
+
     const { error: updateError } = await supabase
       .from("users")
-      .update({ username })
+      .update(payload)
       .eq("user_id", user.id);
 
     if (updateError) {
@@ -93,9 +113,9 @@ export default function EditProfileScreen() {
       return;
     }
 
-    // Optional: also update auth metadata
+    // Optional: sync auth metadata
     await supabase.auth.updateUser({
-      data: { username },
+      data: { username: username.trim() },
     });
 
     setSaving(false);
@@ -112,7 +132,8 @@ export default function EditProfileScreen() {
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
-        <View style={{ width: 24 }} />{/* spacer to balance back icon */}
+        <View style={{ width: 24 }} />
+        {/* spacer to balance back icon */}
       </View>
 
       <KeyboardAvoidingView
@@ -139,6 +160,43 @@ export default function EditProfileScreen() {
                     onChangeText={setUsername}
                     placeholder="Enter your username"
                     placeholderTextColor="#9BA4A4"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Mobile</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={mobile}
+                    onChangeText={setMobile}
+                    placeholder="e.g. 0123456789"
+                    placeholderTextColor="#9BA4A4"
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                {/* DOB Field */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Date of Birth</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={dob}
+                    onChangeText={setDob}
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#9BA4A4"
+                  />
+                </View>
+
+                {/* Monthly Income Field */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Monthly Income (RM)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={monthlyIncome}
+                    onChangeText={setMonthlyIncome}
+                    placeholder="e.g. 3500"
+                    placeholderTextColor="#9BA4A4"
+                    keyboardType="numeric"
                   />
                 </View>
 

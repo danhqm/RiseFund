@@ -86,7 +86,7 @@ function getSmartStatus(totalExpense: number, monthlyIncome: number) {
     return {
       icon: "information-circle-outline" as const,
       color: "#052224",
-      text: "You haven&apos;t recorded any spending yet. Scan a receipt to begin.",
+      text: "You haven't recorded any spending yet. Scan a receipt to begin.",
     };
   }
 

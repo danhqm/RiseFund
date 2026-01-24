@@ -1,7 +1,17 @@
 // app/register.tsx
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { supabase } from "../utils/supabase";
 
 export default function Register() {
@@ -12,42 +22,46 @@ export default function Register() {
   const [mobile, setMobile] = useState("");
   const [dob, setDob] = useState("");
   const [password, setPassword] = useState("");
+  const [monthy_income, setMonthyIncome] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [monthlyIncome, setMonthlyIncome] = useState("");
 
   const handleRegister = async () => {
-  if (!username || !email || !password) {
-    Alert.alert("Error", "Please fill all fields");
-    return;
-  }
+    if (!username || !email || !password) {
+      Alert.alert("Error", "Please fill all fields");
+      return;
+    }
 
-  const { data, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+    const { data, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-  if (authError || !data?.user) {
-    Alert.alert("Error", authError?.message || "Failed to create user");
-    return;
-  }
+    if (authError || !data?.user) {
+      Alert.alert("Error", authError?.message || "Failed to create user");
+      return;
+    }
 
-  const { error: profileError } = await supabase.from("users").insert({
-    user_id: data.user.id,
-    username,
-    email,
-  });
+    const { error: profileError } = await supabase.from("users").insert({
+      user_id: data.user.id,
+      username,
+      email,
+      mobile,
+      dob,
+      monthy_income,
+    });
 
-  if (profileError) {
-    Alert.alert("Error", profileError.message);
-    return;
-  }
+    if (profileError) {
+      Alert.alert("Error", profileError.message);
+      return;
+    }
 
-  Alert.alert(
-    "Verify your email",
-    "We’ve sent a verification link to your email. Please confirm it before logging in.",
-    [{ text: "OK", onPress: () => router.replace("/login") }]
-  );
-};
+    Alert.alert(
+      "Verify your email",
+      "We’ve sent a verification link to your email. Please confirm it before logging in.",
+      [{ text: "OK", onPress: () => router.replace("/login") }],
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -59,90 +73,98 @@ export default function Register() {
       </View>
 
       <View style={styles.card}>
-        <ScrollView contentContainerStyle={styles.formContainer} showsVerticalScrollIndicator={false}>
-            
-            <Text style={styles.label}>Username</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter your username"
-                placeholderTextColor={"#9DBDB0"}
-                value={username}
-                onChangeText={setUsername}
-            />
+        <ScrollView
+          contentContainerStyle={styles.formContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.label}>Username</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your username"
+            placeholderTextColor={"#9DBDB0"}
+            value={username}
+            onChangeText={setUsername}
+          />
 
-            <Text style={styles.label}>Email</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter your email"
-                placeholderTextColor={"#9DBDB0"}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-            />
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your email"
+            placeholderTextColor={"#9DBDB0"}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
 
-            <Text style={styles.label}>Mobile Number</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter your mobile number"
-                placeholderTextColor={"#9DBDB0"}
-                value={mobile}
-                onChangeText={setMobile}
-                keyboardType="numeric"
-            />
+          <Text style={styles.label}>Mobile Number</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your mobile number"
+            placeholderTextColor={"#9DBDB0"}
+            value={mobile}
+            onChangeText={setMobile}
+            keyboardType="numeric"
+          />
 
-            <Text style={styles.label}>Date Of Birth</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="DD/MM/YYYY"
-                placeholderTextColor={"#9DBDB0"}
-                value={dob}
-                onChangeText={setDob}
-            />
+          <Text style={styles.label}>Date Of Birth</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="DD/MM/YYYY"
+            placeholderTextColor={"#9DBDB0"}
+            value={dob}
+            onChangeText={setDob}
+          />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter password"
-                placeholderTextColor={"#9DBDB0"}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-            />
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter password"
+            placeholderTextColor={"#9DBDB0"}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-            <Text style={styles.label}>Confirm Password</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Confirm password"
-                placeholderTextColor={"#9DBDB0"}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-            />
+          <Text style={styles.label}>Confirm Password</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm password"
+            placeholderTextColor={"#9DBDB0"}
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
 
-            <Text style={styles.label}>Monthly Income</Text>
-            <TextInput
-                style={styles.input}
-                placeholder="Enter your monthly income"
-                placeholderTextColor={"#9DBDB0"}
-                value={monthlyIncome}
-                onChangeText={setMonthlyIncome}
-                keyboardType="numeric"
-            />
+          <Text style={styles.label}>Monthly Income</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your monthly income"
+            placeholderTextColor={"#9DBDB0"}
+            value={monthlyIncome}
+            onChangeText={setMonthlyIncome}
+            keyboardType="numeric"
+          />
 
-            <Text style={styles.policyText}>
-                By continuing, you agree to Terms of Use and Privacy Policy <Text style={{ fontWeight: "700" }}>Log In</Text>
+          <Text style={styles.policyText}>
+            By continuing, you agree to Terms of Use and Privacy Policy{" "}
+            <Text style={{ fontWeight: "700" }}>Log In</Text>
+          </Text>
+
+          <TouchableOpacity
+            style={styles.signUpButton}
+            onPress={handleRegister}
+          >
+            <Text style={styles.signUpText}>Sign Up</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => router.push("/landing")}>
+            <Text style={styles.loginText}>
+              Already have an account?{" "}
+              <Text style={{ fontWeight: "700" }}></Text>
+              <Text style={styles.footerLink}>Log In</Text>
             </Text>
-
-            <TouchableOpacity style={styles.signUpButton} onPress={handleRegister}>
-                <Text style={styles.signUpText}>Sign Up</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => router.push("/landing")}>
-                <Text style={styles.loginText}>
-                Already have an account? <Text style={{ fontWeight: "700" }}></Text><Text style={styles.footerLink}>Log In</Text>
-                </Text>
-            </TouchableOpacity>
-            </ScrollView>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );
@@ -179,7 +201,7 @@ const styles = StyleSheet.create({
   formContainer: {
     paddingBottom: 40,
   },
-  
+
   label: {
     fontFamily: "Poppins_700Bold",
     fontSize: 14,

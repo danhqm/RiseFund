@@ -16,9 +16,6 @@ import { supabase } from "../../utils/supabase";
 
 const MENU_ITEMS = [
   { label: "Edit Profile", icon: "person-outline" as const },
-  { label: "Security", icon: "shield-checkmark-outline" as const },
-  { label: "Setting", icon: "settings-outline" as const },
-  { label: "Help", icon: "help-circle-outline" as const },
   { label: "Logout", icon: "log-out-outline" as const },
 ];
 
