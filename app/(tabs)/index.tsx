@@ -6,7 +6,7 @@ import {
 } from "@/utils/badges";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Image,
   RefreshControl,
@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import ConfettiCannon from "react-native-confetti-cannon";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase"; // adjust if needed
 
@@ -139,6 +140,24 @@ function finSentence(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
+function formatWeekLabel(startOfWeek: Date) {
+  // startOfWeek is Monday
+  const end = new Date(startOfWeek);
+  end.setDate(startOfWeek.getDate() + 6); // Sunday
+
+  const monthShort = (d: Date) => d.toLocaleString("en-GB", { month: "short" }); // Jan, Feb...
+
+  const day = (d: Date) => d.getDate();
+
+  // If same month: "Week of 22–28 Jan"
+  if (startOfWeek.getMonth() === end.getMonth()) {
+    return `Week of ${day(startOfWeek)}–${day(end)} ${monthShort(end)}`;
+  }
+
+  // If spans months: "Week of 29 Jan – 4 Feb"
+  return `Week of ${day(startOfWeek)} ${monthShort(startOfWeek)} – ${day(end)} ${monthShort(end)}`;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
 
@@ -161,6 +180,28 @@ export default function HomeScreen() {
   const status = getSmartStatus(totalExpense, monthlyIncome);
   const [aiInsights, setAiInsights] = useState<string[] | null>(null);
   const [aiInsightsLoading, setAiInsightsLoading] = useState(false);
+  const [weekLabel, setWeekLabel] = useState<string>("");
+  const [showConfetti, setShowConfetti] = useState(false);
+  const prevStreakRef = useRef<number>(0);
+
+  useEffect(() => {
+    const prev = prevStreakRef.current;
+
+    // streak increased?
+    if (streakCount > prev) {
+      // milestones you want to celebrate
+      const milestones = new Set([3, 7, 30]);
+
+      if (milestones.has(streakCount)) {
+        setShowConfetti(true);
+
+        // auto-hide after burst
+        setTimeout(() => setShowConfetti(false), 2500);
+      }
+    }
+
+    prevStreakRef.current = streakCount;
+  }, [streakCount]);
 
   const progressPercent =
     monthlyIncome > 0
@@ -301,7 +342,8 @@ export default function HomeScreen() {
     const diffToMonday = (jsDay + 6) % 7; // Monday = 0
 
     const startOfWeek = new Date(todayAtMidnight);
-    startOfWeek.setDate(todayAtMidnight.getDate() - diffToMonday); // Monday
+    startOfWeek.setDate(todayAtMidnight.getDate() - diffToMonday);
+    setWeekLabel(formatWeekLabel(startOfWeek));
 
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 7); // next Monday (exclusive)
@@ -337,8 +379,14 @@ export default function HomeScreen() {
         console.log("Home: week receipts error", weekError);
       } else {
         (weekReceipts || []).forEach((row: any) => {
-          const d = new Date(row.created_at);
-          const js = d.getDay();
+          const utcDate = new Date(row.created_at);
+
+          // convert to local MY time
+          const localDate = new Date(
+            utcDate.getTime() + utcDate.getTimezoneOffset() * -60000,
+          );
+
+          const js = localDate.getDay();
           const idx = js === 0 ? 6 : js - 1;
 
           const amount = Number(row.total_amount || 0);
@@ -532,12 +580,10 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // 🔁 Load data whenever Home tab is focused
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // 🔁 Pull-to-refresh handler
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
     await loadData();
@@ -681,9 +727,9 @@ export default function HomeScreen() {
           </View>
 
           {/* Section Title */}
-          <Text style={styles.sectionTitle}>
-            Your Spending Pattern For This Week (Mon–Sun)
-          </Text>
+          <Text style={styles.sectionTitle}>Your Spending Pattern</Text>
+
+          <Text style={styles.weekLabel}>{weekLabel}</Text>
 
           {/* Chart Card */}
           <View style={styles.chartCard}>
@@ -833,53 +879,48 @@ export default function HomeScreen() {
 
           {/* ===== Streak Summary & Badges ===== */}
           <View style={styles.streakRow}>
-            <View>
-              <Text style={styles.streakLabel}>Daily Streak</Text>
-              <Text style={styles.streakValue}>
-                {streakCount} day{streakCount === 1 ? "" : "s"}
-              </Text>
-            </View>
-            <View>
-              <Text style={styles.streakLabel}>Receipts this month</Text>
-              <Text style={styles.streakValue}>{monthReceiptCount}</Text>
-            </View>
-          </View>
-
-          <View style={styles.badgeRow}>
-            {badges.map((b) => (
-              <View
-                key={b.id}
-                style={[
-                  styles.badgeCard,
-                  b.unlocked ? styles.badgeUnlocked : styles.badgeLocked,
-                ]}
-              >
-                <Ionicons
-                  name={b.unlocked ? "trophy" : "lock-closed"}
-                  size={18}
-                  color={b.unlocked ? "#F4B000" : "#7A8B8B"}
-                />
-                <Text
-                  style={[
-                    styles.badgeTitle,
-                    !b.unlocked && { color: "#7A8B8B" },
-                  ]}
-                >
-                  {b.title}
-                </Text>
-                <Text
-                  style={[
-                    styles.badgeDescription,
-                    !b.unlocked && { color: "#7A8B8B" },
-                  ]}
-                >
-                  {b.description}
-                </Text>
+            {/* Daily Streak */}
+            <View
+              style={[
+                styles.statCard,
+                streakCount >= 3 && styles.streakGlowCard,
+              ]}
+            >
+              <View style={[styles.statIcon, { backgroundColor: "#E0FFF4" }]}>
+                <Ionicons name="flame" size={18} color="#00D09E" />
               </View>
-            ))}
+
+              <Text style={styles.statValue}>
+                {streakCount}
+                <Text style={styles.statUnit}>
+                  {" "}
+                  day{streakCount === 1 ? "" : "s"}
+                </Text>
+              </Text>
+
+              <Text style={styles.statLabel}>Daily Streak</Text>
+            </View>
+
+            {/* Receipts */}
+            <View style={styles.statCard}>
+              <View style={[styles.statIcon, { backgroundColor: "#FFF4E0" }]}>
+                <Ionicons name="receipt-outline" size={18} color="#F59E0B" />
+              </View>
+
+              <Text style={styles.statValue}>{monthReceiptCount}</Text>
+              <Text style={styles.statLabel}>Receipts this month</Text>
+            </View>
           </View>
         </ScrollView>
       </View>
+      {showConfetti && (
+        <ConfettiCannon
+          count={90}
+          origin={{ x: 180, y: 0 }}
+          fadeOut
+          fallSpeed={2500}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -934,6 +975,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 8,
   },
+  statCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 14,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+
+  statValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#093030",
+  },
+
+  statUnit: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
   statBox: {
     flex: 1,
     borderRadius: 12,
@@ -953,8 +1025,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statLabel: {
-    color: "#052224",
-    fontSize: 11,
+    fontSize: 12,
+    color: "#4A5B5B",
+    marginTop: 2,
   },
   incomeValue: {
     marginTop: 6,
@@ -1043,10 +1116,10 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     textAlign: "center",
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: "600",
     color: "#093030",
-    marginBottom: 16,
+    marginBottom: 4,
   },
 
   /* Chart card */
@@ -1129,9 +1202,10 @@ const styles = StyleSheet.create({
 
   /* Streak & Badges */
   streakRow: {
-    marginTop: 16,
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: 12,
+    marginVertical: 16,
   },
   streakLabel: {
     fontSize: 12,
@@ -1217,5 +1291,22 @@ const styles = StyleSheet.create({
   legendLabel: {
     fontSize: 10,
     color: "#093030",
+  },
+  weekLabel: {
+    marginTop: 5,
+    marginBottom: 16,
+    fontWeight: "600",
+    textAlign: "center",
+    fontSize: 18,
+    color: "#093030",
+  },
+  streakGlowCard: {
+    borderWidth: 1.5,
+    borderColor: "#00D09E",
+    shadowColor: "#00D09E",
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
 });

@@ -1,10 +1,12 @@
 import { supabase } from "@/utils/supabase";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   Image,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,10 +26,23 @@ export default function ReceiptScanner() {
   const [allReceipts, setAllReceipts] = useState<any[]>([]);
   const [viewAllVisible, setViewAllVisible] = useState(false);
   const [allLoading, setAllLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadRecentReceipts();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadRecentReceipts();
+    }, []),
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadRecentReceipts(); // refresh the recent list
+      if (viewAllVisible) await loadAllReceipts(); // optional: refresh modal list if open
+    } finally {
+      setRefreshing(false);
+    }
+  }, [viewAllVisible]);
 
   const loadRecentReceipts = async () => {
     const { data: authData } = await supabase.auth.getUser();
@@ -86,8 +101,11 @@ export default function ReceiptScanner() {
 
     if (!userId) {
       setError("You need to be logged in to scan receipts.");
+      setLoading(false);
       return;
     }
+
+    await loadRecentReceipts();
 
     try {
       const res = await fetch(OCR_API_URL, {
@@ -139,124 +157,119 @@ export default function ReceiptScanner() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.innerContainer}>
-        <View style={styles.cardContent}>
-          <Text style={styles.cardTitle}>
-            Upload A Receipt To Automatically{"\n"}Track Your Spending
-          </Text>
-
-          <View style={styles.receiptPreview}>
-            <Image
-              source={require("../../assets/images/receipt-check.png")}
-              style={styles.receiptImage}
-              resizeMode="contain"
-            />
-          </View>
-
-          <Text style={styles.helperText}>Clear image works the best.</Text>
-
-          <TouchableOpacity style={styles.scanButton} onPress={pickImage}>
-            <Ionicons name="scan-outline" size={20} color="#093030" />
-            <Text style={styles.scanButtonText}>
-              {loading ? "Scanning..." : "Scan Receipt"}
+      <ScrollView
+        style={styles.innerContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.innerContainer}>
+          <View style={styles.cardContent}>
+            <Text style={styles.cardTitle}>
+              Upload A Receipt To Automatically{"\n"}Track Your Spending
             </Text>
-          </TouchableOpacity>
-
-          {error && <Text style={styles.errorText}>{error}</Text>}
-
-          {receiptData && (
-            <ScrollView
-              style={styles.resultScroll}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 40 }}
-            >
-              <View style={styles.resultCard}>
-                <Text style={styles.resultTitle}>Last Scanned Receipt</Text>
-
-                <Text style={styles.resultLabel}>Merchant</Text>
-                <Text style={styles.resultValue}>
-                  {receiptData.merchant_name || "Unknown"}
-                </Text>
-
-                <Text style={styles.resultLabel}>Date</Text>
-                <Text style={styles.resultValue}>
-                  {receiptData.receipt_date || "—"}
-                </Text>
-
-                <Text style={styles.resultLabel}>Total Amount</Text>
-                <Text style={styles.resultValue}>
-                  RM {Number(receiptData.total_amount || 0).toFixed(2)}
-                </Text>
-
-                {/* Category */}
-                <Text style={styles.resultLabel}>Category</Text>
-                <Text style={styles.resultValue}>
-                  {receiptData.category
-                    ? receiptData.category
-                        .replace(/_/g, " ")
-                        .toLowerCase()
-                        .replace(/\b\w/g, (c: string) => c.toUpperCase())
-                    : "Not categorized"}
-                </Text>
-
-                {/* Items */}
-                {Array.isArray(receiptData.items) &&
-                  receiptData.items.length > 0 && (
-                    <>
-                      <Text style={[styles.resultLabel, { marginTop: 10 }]}>
-                        Items
-                      </Text>
-                      {receiptData.items.map((item: any, idx: number) => (
-                        <Text key={idx} style={styles.itemText}>
-                          • {item.name || "Item"} – RM{" "}
-                          {Number(item.price || 0).toFixed(2)}
-                        </Text>
-                      ))}
-                    </>
-                  )}
-              </View>
-            </ScrollView>
-          )}
-          {recentReceipts.length > 0 && (
-            <View style={styles.recentSection}>
-              <View style={styles.recentHeader}>
-                <Text style={styles.recentTitle}>Recent Scans</Text>
-
-                <TouchableOpacity
-                  onPress={async () => {
-                    setViewAllVisible(true);
-                    await loadAllReceipts();
-                  }}
-                >
-                  <Text style={styles.viewAllText}>View all</Text>
-                </TouchableOpacity>
-              </View>
-
-              {recentReceipts.map((r) => (
-                <View key={r.id} style={styles.recentCard}>
-                  <Text style={styles.recentMerchant}>
-                    {r.merchant_name || "Unknown merchant"}
+            <View style={styles.receiptPreview}>
+              <Image
+                source={require("../../assets/images/receipt-check.png")}
+                style={styles.receiptImage}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.helperText}>Clear image works the best.</Text>
+            <TouchableOpacity style={styles.scanButton} onPress={pickImage}>
+              <Ionicons name="scan-outline" size={20} color="#093030" />
+              <Text style={styles.scanButtonText}>
+                {loading ? "Scanning..." : "Scan Receipt"}
+              </Text>
+            </TouchableOpacity>
+            {error && <Text style={styles.errorText}>{error}</Text>}
+            {receiptData && (
+              <ScrollView
+                style={styles.resultScroll}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 40 }}
+              >
+                <View style={styles.resultCard}>
+                  <Text style={styles.resultTitle}>Last Scanned Receipt</Text>
+                  <Text style={styles.resultLabel}>Merchant</Text>
+                  <Text style={styles.resultValue}>
+                    {receiptData.merchant_name || "Unknown"}
                   </Text>
-
-                  <Text style={styles.recentMeta}>
-                    {r.receipt_date || "—"} • RM
-                    {Number(r.total_amount || 0).toFixed(2)}
+                  <Text style={styles.resultLabel}>Date</Text>
+                  <Text style={styles.resultValue}>
+                    {receiptData.receipt_date || "—"}
                   </Text>
-
-                  <Text style={styles.recentCategory}>
-                    {r.category
-                      ? r.category
+                  <Text style={styles.resultLabel}>Total Amount</Text>
+                  <Text style={styles.resultValue}>
+                    RM {Number(receiptData.total_amount || 0).toFixed(2)}
+                  </Text>
+                  {/* Category */}
+                  <Text style={styles.resultLabel}>Category</Text>
+                  <Text style={styles.resultValue}>
+                    {receiptData.category
+                      ? receiptData.category
                           .replace(/_/g, " ")
                           .toLowerCase()
                           .replace(/\b\w/g, (c: string) => c.toUpperCase())
                       : "Not categorized"}
                   </Text>
+                  {/* Items */}
+                  {Array.isArray(receiptData.items) &&
+                    receiptData.items.length > 0 && (
+                      <>
+                        <Text style={[styles.resultLabel, { marginTop: 10 }]}>
+                          Items
+                        </Text>
+                        {receiptData.items.map((item: any, idx: number) => (
+                          <Text key={idx} style={styles.itemText}>
+                            • {item.name || "Item"} – RM{" "}
+                            {Number(item.price || 0).toFixed(2)}
+                          </Text>
+                        ))}
+                      </>
+                    )}
                 </View>
-              ))}
-            </View>
-          )}
+              </ScrollView>
+            )}
+            {recentReceipts.length > 0 && (
+              <View style={styles.recentSection}>
+                <View style={styles.recentHeader}>
+                  <Text style={styles.recentTitle}>Recent Scans</Text>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      setViewAllVisible(true);
+                      await loadAllReceipts();
+                    }}
+                  >
+                    <Text style={styles.viewAllText}>View all</Text>
+                  </TouchableOpacity>
+                </View>
+                {recentReceipts.map((r) => (
+                  <View key={r.id} style={styles.recentCard}>
+                    <Text style={styles.recentMerchant}>
+                      {r.merchant_name || "Unknown merchant"}
+                    </Text>
+                    <Text style={styles.recentMeta}>
+                      {r.receipt_date || "—"} • RM
+                      {Number(r.total_amount || 0).toFixed(2)}
+                    </Text>
+                    <Text style={styles.recentCategory}>
+                      {r.category
+                        ? r.category
+                            .replace(/_/g, " ")
+                            .toLowerCase()
+                            .replace(/\b\w/g, (c: string) => c.toUpperCase())
+                        : "Not categorized"}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
+      </ScrollView>
       <Modal visible={viewAllVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -346,9 +359,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    alignItems: "center",
   },
 
   cardContent: {
@@ -526,5 +536,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     marginTop: 12,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    alignItems: "center",
+    paddingBottom: 40,
   },
 });

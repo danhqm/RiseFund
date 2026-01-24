@@ -16,6 +16,31 @@ import { supabase } from "../utils/supabase";
 const PRIMARY = "#00D09E";
 const BG_LIGHT = "#E9FFF4";
 
+function inferCorrectIdx(item: QuizItem): number {
+  const marks = (s?: string) => /✅|correct/i.test(String(s ?? ""));
+
+  if (marks(item.explanation1)) return 0;
+  if (marks(item.explanation2)) return 1;
+  if (marks(item.explanation3)) return 2;
+
+  // fallback to correct_index if no marker found
+  const ci = Number(item.correct_index);
+
+  // if it's 1..3, convert to 0..2
+  if (ci >= 1 && ci <= 3) return ci - 1;
+
+  // if it's already 0..2, use it
+  return Math.max(0, Math.min(2, ci));
+}
+
+function getCorrectIdx0(correct_index: number) {
+  // supports both:
+  // 1-based (1,2,3) -> (0,1,2)
+  // 0-based (0,1,2) -> (0,1,2)
+  if (correct_index >= 1 && correct_index <= 3) return correct_index - 1;
+  return correct_index; // assume already 0-based
+}
+
 function getTodayDateString() {
   const d = new Date();
   const year = d.getFullYear();
@@ -24,17 +49,12 @@ function getTodayDateString() {
   return `${year}-${month}-${day}`;
 }
 
-function getWeekKey(date = new Date()) {
-  // ISO week number
-  const d = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  );
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((+d - +yearStart) / 86400000 + 1) / 7);
-  const paddedWeek = weekNo.toString().padStart(2, "0");
-  return `${d.getUTCFullYear()}-W${paddedWeek}`; // e.g. "2026-W03"
+function getTodayKeyLocal() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`; // YYYY-MM-DD
 }
 
 type Category = "savings" | "budgeting" | "debt";
@@ -77,6 +97,23 @@ export default function EduFinanceQuizScreen() {
   const [notesTitle, setNotesTitle] = useState<string>("");
   const [notesContent, setNotesContent] = useState<string>("");
   const [notesLoading, setNotesLoading] = useState<boolean>(false);
+
+  const ensureDailyTasksGenerated = useCallback(async () => {
+    // today in local format YYYY-MM-DD
+    const taskDate = getTodayKeyLocal();
+
+    // If your SQL function accepts p_date:
+    const { error } = await supabase.rpc("generate_daily_edufinance_tasks", {
+      p_date: taskDate,
+    });
+
+    // If your function DOES NOT accept params, use:
+    // const { error } = await supabase.rpc("generate_daily_edufinance_tasks");
+
+    if (error) {
+      console.log("generate_daily_edufinance_tasks error:", error.message);
+    }
+  }, []);
 
   const loadNotes = useCallback(async () => {
     if (!category) return;
@@ -140,7 +177,8 @@ export default function EduFinanceQuizScreen() {
       return;
     }
 
-    const weekKey = getWeekKey(); // same as used when fetching tasks
+    // ✅ local YYYY-MM-DD (same helper you used elsewhere)
+    const taskDate = getTodayKeyLocal();
 
     const { error: upsertError } = await supabase
       .from("edufinance_task_progress")
@@ -149,14 +187,19 @@ export default function EduFinanceQuizScreen() {
           user_id: user.id,
           task_id: item.id,
           category,
-          week_key: weekKey,
+          task_date: taskDate, // ✅ NEW
           selected_index: selectedIndex,
           is_correct: isCorrect,
         },
         {
-          onConflict: "user_id,task_id",
+          // ✅ IMPORTANT: include task_date in conflict
+          onConflict: "user_id,task_id,task_date",
         },
       );
+
+    if (upsertError) {
+      console.log("saveProgress upsert error:", upsertError.message);
+    }
   };
 
   const awardStreakIfNeeded = async () => {
@@ -237,19 +280,19 @@ export default function EduFinanceQuizScreen() {
       setLoading(true);
       setError(null);
 
-      const weekKey = getWeekKey(); // e.g. "2026-W03"
+      await ensureDailyTasksGenerated();
 
       const { data, error } = await supabase
         .from("edufinance_tasks")
         .select("*")
         .eq("category", category)
-        .eq("week_key", weekKey)
+        .eq("task_date", getTodayKeyLocal())
         .order("id")
         .limit(3);
 
       if (error) {
         console.log("Error fetching tasks:", error);
-        setError("Unable to load tasks for this week.");
+        setError("Unable to load tasks for today.");
         setQuizItems([]);
       } else {
         setQuizItems(data || []);
@@ -278,21 +321,25 @@ export default function EduFinanceQuizScreen() {
     };
 
     fetchTasks();
-  }, [category, taskId, loadNotes]);
+  }, [category, taskId, loadNotes, ensureDailyTasksGenerated]);
 
-  const handleSelect = (item: QuizItem, index: number) => {
+  const handleSelect = (item: QuizItem, index: number, correctIdx0: number) => {
     setSelectedOption((prev) => ({
       ...prev,
       [item.id.toString()]: index,
     }));
 
-    const isCorrect = index === item.correct_index;
+    const isCorrect = index === correctIdx0;
 
-    // award streak once per day
     awardStreakIfNeeded();
-
-    // save this answer to DB
     saveProgress(item, index, isCorrect);
+
+    // ✅ Debug log (super useful)
+    console.log("TASK:", item.title, {
+      selected: index,
+      correctIdx0,
+      rawCorrectIndex: item.correct_index,
+    });
   };
 
   // Loading state
@@ -426,24 +473,34 @@ export default function EduFinanceQuizScreen() {
             </Text>
 
             {quizItems.map((item) => {
-              const selected = selectedOption[item.id.toString()];
+              // ✅ selected is defined HERE (fixes "Cannot find name 'selected'")
+              const selected = selectedOption[item.id.toString()] ?? null;
 
-              const options: Option[] = [
-                {
-                  text: item.option1,
-                  isCorrect: item.correct_index === 0,
-                  explanation: item.explanation1,
-                },
-                {
-                  text: item.option2,
-                  isCorrect: item.correct_index === 1,
-                  explanation: item.explanation2,
-                },
-                {
-                  text: item.option3,
-                  isCorrect: item.correct_index === 2,
-                  explanation: item.explanation3,
-                },
+              // ✅ Decide correct answer index ONCE (0,1,2)
+              const correctIdx0 = (() => {
+                const marks = (s?: string) =>
+                  /✅|correct/i.test(String(s ?? ""));
+
+                if (marks(item.explanation1)) return 0;
+                if (marks(item.explanation2)) return 1;
+                if (marks(item.explanation3)) return 2;
+
+                const ci = Number(item.correct_index);
+
+                // if DB stored 1..3 → convert
+                if (ci >= 1 && ci <= 3) return ci - 1;
+
+                // if DB stored 0..2 → keep
+                if (ci >= 0 && ci <= 2) return ci;
+
+                // fallback safe
+                return 0;
+              })();
+
+              const options = [
+                { text: item.option1, explanation: item.explanation1 },
+                { text: item.option2, explanation: item.explanation2 },
+                { text: item.option3, explanation: item.explanation3 },
               ];
 
               return (
@@ -453,26 +510,30 @@ export default function EduFinanceQuizScreen() {
 
                   {options.map((opt, idx) => {
                     const isSelected = selected === idx;
+                    const isCorrectOption = idx === correctIdx0;
+
                     let backgroundColor = "#F1F5F4";
 
-                    if (isSelected && opt.isCorrect)
-                      backgroundColor = "#C8F7D0";
-                    else if (isSelected && !opt.isCorrect)
-                      backgroundColor = "#FFD6D6";
+                    // ✅ Only color AFTER user selects
+                    if (selected !== null) {
+                      if (isSelected && isCorrectOption)
+                        backgroundColor = "#C8F7D0"; // green
+                      else if (isSelected && !isCorrectOption)
+                        backgroundColor = "#FFD6D6"; // red
+                    }
 
                     return (
                       <TouchableOpacity
                         key={idx}
                         style={[styles.optionButton, { backgroundColor }]}
-                        onPress={() => handleSelect(item, idx)}
+                        onPress={() => handleSelect(item, idx, correctIdx0)} // ✅ pass correctIdx0
                       >
                         <Text style={styles.optionText}>{opt.text}</Text>
                       </TouchableOpacity>
                     );
                   })}
 
-                  {selected !== undefined &&
-                    selected !== null &&
+                  {selected !== null &&
                     selected >= 0 &&
                     selected < options.length && (
                       <Text style={styles.explanationText}>
@@ -482,7 +543,6 @@ export default function EduFinanceQuizScreen() {
                 </View>
               );
             })}
-
             <View style={{ height: 20 }} />
           </ScrollView>
         )}

@@ -20,6 +20,14 @@ import { supabase } from "../../utils/supabase";
 const PRIMARY = "#00D09E";
 const CARD_BG = "#E9FFF4";
 
+function getTodayKeyLocal() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`; // e.g. 2026-01-24
+}
+
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0;
 
@@ -44,19 +52,6 @@ function computeStreak(dates: string[]): number {
   }
 
   return streak;
-}
-
-function getWeekKey(date = new Date()) {
-  // ISO week number
-  const d = new Date(
-    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
-  );
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((+d - +yearStart) / 86400000 + 1) / 7);
-  const paddedWeek = weekNo.toString().padStart(2, "0");
-  return `${d.getUTCFullYear()}-W${paddedWeek}`; // e.g. "2026-W03"
 }
 
 const BADGE_CONFIG: Record<string, { emoji: string; labelOverride?: string }> =
@@ -487,7 +482,6 @@ export default function EduFinanceScreen() {
     [loadBadges],
   );
 
-  // 🔹 1. Load completion counts
   const loadCompletionCounts = useCallback(async () => {
     const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
@@ -500,14 +494,14 @@ export default function EduFinanceScreen() {
       return;
     }
 
-    const weekKey = getWeekKey();
+    const todayKey = getTodayKeyLocal();
 
     const fetchCount = async (category: string) => {
       const { data, error } = await supabase
         .from("edufinance_task_progress")
         .select("id")
         .eq("user_id", user.id)
-        .eq("week_key", weekKey)
+        .eq("task_date", todayKey)
         .eq("category", category);
 
       if (error) {

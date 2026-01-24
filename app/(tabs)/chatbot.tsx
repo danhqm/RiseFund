@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { StatusBar } from "expo-status-bar";
 import React, { useRef, useState } from "react";
 import {
   Image,
@@ -62,6 +63,7 @@ export default function Chatbot() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" backgroundColor={PRIMARY} />
       {/* Header (same style family as EduFinance) */}
       <View style={styles.header}>
         <TouchableOpacity>
@@ -77,9 +79,9 @@ export default function Chatbot() {
 
       {/* White rounded page + keyboard avoiding */}
       <KeyboardAvoidingView
-        style={styles.keyboardAvoiding}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={tabBarHeight + 20}
+        style={{ flex: 1, backgroundColor: "#fff" }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? tabBarHeight : 0}
       >
         <View style={styles.innerContainer}>
           {/* Card header inside white page */}
@@ -100,7 +102,7 @@ export default function Chatbot() {
           <ScrollView
             ref={scrollViewRef}
             style={styles.chatContainer}
-            contentContainerStyle={{ paddingBottom: tabBarHeight + 80 }}
+            contentContainerStyle={{ paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
           >
             {messages.map((msg, i) => (
@@ -118,12 +120,7 @@ export default function Chatbot() {
           </ScrollView>
 
           {/* Input row */}
-          <View
-            style={[
-              styles.inputContainer,
-              { paddingBottom: tabBarHeight + 10 },
-            ]}
-          >
+          <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
               placeholder="Type a message..."
@@ -151,12 +148,13 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
   },
   header: {
+    backgroundColor: PRIMARY, // ONLY header is green
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 16,
+    paddingBottom: 60,
   },
   headerTitle: {
     fontSize: 20,
@@ -171,18 +169,19 @@ const styles = StyleSheet.create({
 
   innerContainer: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#fff",
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
+    marginTop: -40,
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
 
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
-    marginLeft: 4,
   },
   icon: {
     width: 50,
@@ -227,11 +226,11 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginTop: 4,
   },
-
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 12,
+    paddingBottom: 40,
   },
   input: {
     flex: 1,
