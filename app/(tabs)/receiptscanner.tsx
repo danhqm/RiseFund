@@ -37,8 +37,8 @@ export default function ReceiptScanner() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await loadRecentReceipts(); // refresh the recent list
-      if (viewAllVisible) await loadAllReceipts(); // optional: refresh modal list if open
+      await loadRecentReceipts();
+      if (viewAllVisible) await loadAllReceipts();
     } finally {
       setRefreshing(false);
     }
@@ -146,15 +146,7 @@ export default function ReceiptScanner() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#052224" />
-        </TouchableOpacity>
-
         <Text style={styles.headerTitle}>Receipt{"\n"}Scanner</Text>
-
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={22} color="#052224" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -338,11 +330,11 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 25,
+    paddingTop: 25,
     paddingBottom: 16,
   },
 
@@ -413,7 +405,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   resultScroll: {
-    maxHeight: 300, // adjust (300–420 works well)
+    maxHeight: 300,
     marginTop: 12,
   },
   resultCard: {

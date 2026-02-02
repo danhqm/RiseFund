@@ -1,4 +1,3 @@
-// app/(tabs)/index.tsx
 import {
   awardBudgetBehaviorBadges,
   awardCategoryBadges,
@@ -18,7 +17,7 @@ import {
 } from "react-native";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { supabase } from "../../utils/supabase"; // adjust if needed
+import { supabase } from "../../utils/supabase";
 
 const PRIMARY = "#00D09E";
 
@@ -41,7 +40,6 @@ type WeeklyPoint = {
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0;
 
-  // Convert to Date objects & sort desc
   const uniqueDates = Array.from(new Set(dates));
   const sorted = uniqueDates
     .map((d) => new Date(d + "T00:00:00"))
@@ -68,11 +66,10 @@ function computeStreak(dates: string[]): number {
 function getDateNDaysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split("T")[0]; // 'YYYY-MM-DD'
+  return d.toISOString().split("T")[0];
 }
 
 function getSmartStatus(totalExpense: number, monthlyIncome: number) {
-  // If income not set, nudge the user
   if (!monthlyIncome || monthlyIncome <= 0) {
     return {
       icon: "information-circle-outline" as const,
@@ -81,7 +78,6 @@ function getSmartStatus(totalExpense: number, monthlyIncome: number) {
     };
   }
 
-  // No spending yet
   if (!totalExpense || totalExpense <= 0) {
     return {
       icon: "information-circle-outline" as const,
@@ -98,16 +94,13 @@ function getSmartStatus(totalExpense: number, monthlyIncome: number) {
     0,
   ).getDate();
 
-  // Simple projection based on average daily spend so far
   const avgPerDaySoFar = totalExpense / dayOfMonth;
   const projectedMonthSpend = avgPerDaySoFar * daysInMonth;
   const projectedPercent = Math.round(
     (projectedMonthSpend / monthlyIncome) * 100,
   );
 
-  // Build different messages based on projection
   if (projectedMonthSpend > monthlyIncome * 1.1) {
-    // More than 110% of income → overshoot
     const diff = projectedMonthSpend - monthlyIncome;
     return {
       icon: "warning-outline" as const,
@@ -119,7 +112,6 @@ function getSmartStatus(totalExpense: number, monthlyIncome: number) {
   }
 
   if (projectedMonthSpend > monthlyIncome * 0.95) {
-    // Between ~95% and 110% → tight
     return {
       icon: "alert-circle-outline" as const,
       color: "#D97706",
@@ -127,7 +119,6 @@ function getSmartStatus(totalExpense: number, monthlyIncome: number) {
     };
   }
 
-  // Safely under budget
   return {
     icon: "checkmark-circle" as const,
     color: "#15803D",
@@ -141,20 +132,17 @@ function finSentence(s: string): string {
 }
 
 function formatWeekLabel(startOfWeek: Date) {
-  // startOfWeek is Monday
   const end = new Date(startOfWeek);
-  end.setDate(startOfWeek.getDate() + 6); // Sunday
+  end.setDate(startOfWeek.getDate() + 6);
 
-  const monthShort = (d: Date) => d.toLocaleString("en-GB", { month: "short" }); // Jan, Feb...
+  const monthShort = (d: Date) => d.toLocaleString("en-GB", { month: "short" });
 
   const day = (d: Date) => d.getDate();
 
-  // If same month: "Week of 22–28 Jan"
   if (startOfWeek.getMonth() === end.getMonth()) {
     return `Week of ${day(startOfWeek)}–${day(end)} ${monthShort(end)}`;
   }
 
-  // If spans months: "Week of 29 Jan – 4 Feb"
   return `Week of ${day(startOfWeek)} ${monthShort(startOfWeek)} – ${day(end)} ${monthShort(end)}`;
 }
 
@@ -187,15 +175,11 @@ export default function HomeScreen() {
   useEffect(() => {
     const prev = prevStreakRef.current;
 
-    // streak increased?
     if (streakCount > prev) {
-      // milestones you want to celebrate
       const milestones = new Set([3, 7, 30]);
 
       if (milestones.has(streakCount)) {
         setShowConfetti(true);
-
-        // auto-hide after burst
         setTimeout(() => setShowConfetti(false), 2500);
       }
     }
@@ -223,8 +207,6 @@ export default function HomeScreen() {
       );
 
       const text = await resp.text();
-
-      // Try parse only if it looks like JSON
       if (!text.trim().startsWith("{") && !text.trim().startsWith("[")) {
         console.log("Not JSON response (likely HTML). Check API URL/route.");
         return;
@@ -240,7 +222,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // 🔁 Load data whenever Home tab is focused
   const loadData = React.useCallback(async () => {
     const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
@@ -252,7 +233,6 @@ export default function HomeScreen() {
 
     let incomeNum = 0;
 
-    // 1️⃣ Load profile (username, monthly income, avatar)
     const { data: profile, error: profileError } = await supabase
       .from("users")
       .select("username, monthy_income, avatar_url")
@@ -268,7 +248,6 @@ export default function HomeScreen() {
         setAvatarUrl(profile.avatar_url);
       }
 
-      // Handle both numeric and string values
       const rawIncome = profile.monthy_income;
 
       if (typeof rawIncome === "number") incomeNum = rawIncome;
@@ -282,7 +261,6 @@ export default function HomeScreen() {
 
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    // 2️⃣ Load this month's *scanned* receipts (for total + count)
     const { data: monthReceipts, error: monthError } = await supabase
       .from("receipts")
       .select("total_amount, created_at")
@@ -299,7 +277,7 @@ export default function HomeScreen() {
       );
       setTotalExpense(sum);
       setMonthReceiptCount(monthReceipts.length);
-      const effectiveIncome = incomeNum > 0 ? incomeNum : 1; // avoid divide by 0
+      const effectiveIncome = incomeNum > 0 ? incomeNum : 1;
       await awardBudgetBehaviorBadges(sum, effectiveIncome);
     }
 
@@ -312,7 +290,6 @@ export default function HomeScreen() {
       console.log("Home: all receipts error (for badges)", allReceiptsError);
     } else {
       const totalReceipts = allReceipts?.length ?? 0;
-      // 🔔 Award scanner badges based on how many receipts user has
       await awardScannerBadges(totalReceipts);
     }
 
@@ -334,19 +311,18 @@ export default function HomeScreen() {
       setLastReceipt(null);
     }
 
-    // 3️⃣ Load this week's *scanned* receipts for chart (Mon → Sun, stacked by category)
     const todayAtMidnight = new Date();
     todayAtMidnight.setHours(0, 0, 0, 0);
 
-    const jsDay = todayAtMidnight.getDay(); // 0=Sun, 1=Mon, ...
-    const diffToMonday = (jsDay + 6) % 7; // Monday = 0
+    const jsDay = todayAtMidnight.getDay();
+    const diffToMonday = (jsDay + 6) % 7;
 
     const startOfWeek = new Date(todayAtMidnight);
     startOfWeek.setDate(todayAtMidnight.getDate() - diffToMonday);
     setWeekLabel(formatWeekLabel(startOfWeek));
 
     const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 7); // next Monday (exclusive)
+    endOfWeek.setDate(startOfWeek.getDate() + 7);
 
     const { data: weekReceipts, error: weekError } = await supabase
       .from("receipts")
@@ -381,7 +357,6 @@ export default function HomeScreen() {
         (weekReceipts || []).forEach((row: any) => {
           const utcDate = new Date(row.created_at);
 
-          // convert to local MY time
           const localDate = new Date(
             utcDate.getTime() + utcDate.getTimezoneOffset() * -60000,
           );
@@ -402,7 +377,6 @@ export default function HomeScreen() {
       }
       const weeklyTotal = points.reduce((acc, p) => acc + p.total, 0);
 
-      // Top 3 categories this week
       const byCat: Record<string, number> = {};
       points.forEach((p) => {
         Object.entries(p.categories).forEach(([cat, amt]) => {
@@ -417,11 +391,9 @@ export default function HomeScreen() {
           amount: Number(amount.toFixed(2)),
         }));
 
-      // Week start string for goals query (YYYY-MM-DD)
       const weekStartStr = startOfWeek.toISOString().split("T")[0];
       const weekEndStr = endOfWeek.toISOString().split("T")[0];
 
-      // Fetch this week goals
       const { data: weekGoals, error: goalsErr } = await supabase
         .from("user_goals")
         .select("title, notes, completed, week_start")
@@ -430,10 +402,8 @@ export default function HomeScreen() {
 
       if (goalsErr) console.log("Home: goals error", goalsErr);
 
-      // Estimate weekly income from monthly (simple)
       const weeklyIncomeEstimate = incomeNum > 0 ? incomeNum / 4 : 0;
 
-      // Build payload for AI
       const payload = {
         userId: user.id,
         currency: "MYR",
@@ -447,7 +417,6 @@ export default function HomeScreen() {
         weeklyExpense: Number(weeklyTotal.toFixed(2)),
         topSpendCategories: topCategories,
 
-        // keep it small & readable for the AI
         weeklyGoals: (weekGoals || []).map((g: any) => ({
           title: g.title,
           notes: g.notes,
@@ -458,7 +427,6 @@ export default function HomeScreen() {
 
       await fetchAIInsights(payload);
 
-      // 4️⃣ Load streaks
       const { data: streakRows, error: streakError } = await supabase
         .from("user_streaks")
         .select("date")
@@ -471,8 +439,7 @@ export default function HomeScreen() {
         setStreakCount(computeStreak(dates));
       }
 
-      // 5️⃣ Load last 14 days receipts for category-based insights
-      const fourteenDaysAgoStr = getDateNDaysAgo(13); // 14 days inclusive
+      const fourteenDaysAgoStr = getDateNDaysAgo(13);
 
       const { data: insightReceipts, error: insightError } = await supabase
         .from("receipts")
@@ -487,7 +454,7 @@ export default function HomeScreen() {
       } else if (insightReceipts) {
         const now = new Date();
         const startOfThisWeek = new Date(now);
-        startOfThisWeek.setDate(now.getDate() - now.getDay()); // Sunday = 0
+        startOfThisWeek.setDate(now.getDate() - now.getDay());
         startOfThisWeek.setHours(0, 0, 0, 0);
 
         const startOfLastWeek = new Date(startOfThisWeek);
@@ -510,7 +477,6 @@ export default function HomeScreen() {
               (categoryTotals[cat] || 0) + lastWeekByCat[cat];
           }
 
-          // 🍔 Award category badges (foodie, groceries_hero, etc.)
           await awardCategoryBadges(categoryTotals);
           const date = new Date(row.receipt_date);
           const amount = Number(row.total_amount) || 0;
@@ -527,7 +493,6 @@ export default function HomeScreen() {
 
         const newInsights: string[] = [];
 
-        // 🏅 Top category this week
         let topCategory: string | null = null;
         let topAmount = 0;
         for (const cat in thisWeekByCat) {
@@ -547,7 +512,6 @@ export default function HomeScreen() {
           );
         }
 
-        // 📊 Week-over-week total change
         if (lastWeekTotal > 0) {
           const diff = thisWeekTotal - lastWeekTotal;
           const pct = Math.round((diff / lastWeekTotal) * 100);
@@ -594,7 +558,6 @@ export default function HomeScreen() {
 
   const totalLast7Days = weeklyData.reduce((acc, p) => acc + p.total, 0);
 
-  // Simple "AI-ish" suggestion text
   let suggestion = "Keep tracking your spending to build better habits.";
   if (progressPercent >= 80) {
     suggestion =
@@ -607,7 +570,6 @@ export default function HomeScreen() {
       "Nice! Your spending is under 50% of your income. Keep saving consistently.";
   }
 
-  // Simple badges derived from data
   const badges = [
     {
       id: "first-receipt",
@@ -631,9 +593,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* ===== Top Green Header ===== */}
       <View style={styles.header}>
-        {/* Greeting */}
         <View>
           <Text style={styles.greetingTitle}>Hi, {username}</Text>
           <Text style={styles.greetingSubtitle}>
@@ -641,7 +601,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Avatar */}
         <TouchableOpacity
           style={styles.avatarWrapper}
           onPress={() => router.push("/profile")}
@@ -659,7 +618,6 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Income / Expense Row */}
       <View style={styles.statsRow}>
         <View className="statBox" style={styles.statBox}>
           <View style={styles.statLabelRow}>
@@ -678,7 +636,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Progress Bar & Status */}
       <View style={styles.progressWrapper}>
         <View style={styles.progressBarBackground}>
           <View
@@ -695,7 +652,6 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* ===== White Rounded Content Area ===== */}
       <View style={styles.bottomSheet}>
         <ScrollView
           showsVerticalScrollIndicator={false}
@@ -704,14 +660,13 @@ export default function HomeScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {/* CTA Buttons */}
           <View style={styles.ctaRow}>
             <TouchableOpacity
               style={styles.ctaButton}
               onPress={() => router.push("/chatbot")}
             >
               <Image
-                source={require("../../assets/images/Fin.png")} // change path
+                source={require("../../assets/images/Fin.png")}
                 style={{ width: 22, height: 22 }}
                 resizeMode="contain"
               />
@@ -726,12 +681,10 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Section Title */}
           <Text style={styles.sectionTitle}>Your Spending Pattern</Text>
 
           <Text style={styles.weekLabel}>{weekLabel}</Text>
 
-          {/* Chart Card */}
           <View style={styles.chartCard}>
             <View style={styles.chartHeaderRow}>
               <Text style={styles.chartTitle}>Income &amp; Expenses</Text>
@@ -743,9 +696,7 @@ export default function HomeScreen() {
             <View style={styles.chartBody}>
               {weeklyData.map((point, idx) => {
                 const height =
-                  maxWeekly > 0
-                    ? 20 + (80 * point.total) / maxWeekly // 20–100
-                    : 20;
+                  maxWeekly > 0 ? 20 + (80 * point.total) / maxWeekly : 20;
 
                 const categories = Object.entries(point.categories);
 
@@ -770,7 +721,6 @@ export default function HomeScreen() {
                           );
                         })
                       ) : (
-                        // no spending that day → faint grey bar
                         <View
                           style={{
                             width: "100%",
@@ -822,7 +772,6 @@ export default function HomeScreen() {
               </View>
             )}
 
-            {/* Fallback to rule-based if AI fails */}
             {!aiInsightsLoading && (!aiInsights || aiInsights.length === 0) && (
               <View>
                 <Text style={styles.insightsText}>
@@ -845,7 +794,6 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {/* Last Receipt Card */}
           {lastReceipt && (
             <View style={styles.lastReceiptCard}>
               <Text style={styles.lastReceiptTitle}>Last Receipt</Text>
@@ -877,9 +825,7 @@ export default function HomeScreen() {
             </View>
           )}
 
-          {/* ===== Streak Summary & Badges ===== */}
           <View style={styles.streakRow}>
-            {/* Daily Streak */}
             <View
               style={[
                 styles.statCard,
@@ -901,7 +847,6 @@ export default function HomeScreen() {
               <Text style={styles.statLabel}>Daily Streak</Text>
             </View>
 
-            {/* Receipts */}
             <View style={styles.statCard}>
               <View style={[styles.statIcon, { backgroundColor: "#FFF4E0" }]}>
                 <Ionicons name="receipt-outline" size={18} color="#F59E0B" />
@@ -925,15 +870,11 @@ export default function HomeScreen() {
   );
 }
 
-/* ===== Styles ===== */
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: PRIMARY,
   },
-
-  /* Header */
   header: {
     paddingTop: 30,
     paddingHorizontal: 20,
@@ -968,8 +909,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     overflow: "hidden",
   },
-
-  /* Stats Row */
   statsRow: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -986,7 +925,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-
   statIcon: {
     width: 36,
     height: 36,
@@ -995,13 +933,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 6,
   },
-
   statValue: {
     fontSize: 20,
     fontWeight: "800",
     color: "#093030",
   },
-
   statUnit: {
     fontSize: 13,
     fontWeight: "600",
@@ -1041,8 +977,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
   },
-
-  /* Progress & Status */
   progressWrapper: {
     marginTop: 16,
     paddingHorizontal: 20,
@@ -1079,8 +1013,6 @@ const styles = StyleSheet.create({
     color: "#052224",
     fontSize: 12,
   },
-
-  /* Bottom sheet */
   bottomSheet: {
     flex: 1,
     backgroundColor: "#ffffff",
@@ -1090,8 +1022,6 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingHorizontal: 20,
   },
-
-  /* CTAs */
   ctaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1121,8 +1051,6 @@ const styles = StyleSheet.create({
     color: "#093030",
     marginBottom: 4,
   },
-
-  /* Chart card */
   chartCard: {
     backgroundColor: "#E9FFF4",
     borderRadius: 26,
@@ -1163,8 +1091,8 @@ const styles = StyleSheet.create({
     width: 10,
     borderRadius: 6,
     overflow: "hidden",
-    backgroundColor: "#E5E7EB", // light grey track when no data
-    flexDirection: "column-reverse", // stack segments from bottom up
+    backgroundColor: "#E5E7EB",
+    flexDirection: "column-reverse",
   },
   barLabel: {
     fontSize: 10,
@@ -1176,8 +1104,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#093030",
   },
-
-  /* Insights */
   insightsCard: {
     marginTop: 16,
     padding: 14,
@@ -1196,11 +1122,9 @@ const styles = StyleSheet.create({
   insightsText: {
     fontSize: 11,
     color: "#093030",
-    lineHeight: 22, // ⬅️ BIG readability win
-    marginBottom: 10, // ⬅️ space between bullets
+    lineHeight: 22,
+    marginBottom: 10,
   },
-
-  /* Streak & Badges */
   streakRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1252,20 +1176,17 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: "#F4FBF7",
   },
-
   lastReceiptTitle: {
     fontSize: 18,
     fontWeight: "700",
     color: "#093030",
     marginBottom: 8,
   },
-
   lastReceiptLabel: {
     fontSize: 11,
     color: "#4A5B5B",
     marginTop: 4,
   },
-
   lastReceiptValue: {
     fontSize: 12,
     color: "#093030",

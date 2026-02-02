@@ -93,7 +93,6 @@ export default function EditProfileScreen() {
       return;
     }
 
-    // 👇 PUT THE PAYLOAD HERE
     const payload = {
       username: username.trim(),
       mobile: mobile.trim() || null,
@@ -113,7 +112,6 @@ export default function EditProfileScreen() {
       return;
     }
 
-    // Optional: sync auth metadata
     await supabase.auth.updateUser({
       data: { username: username.trim() },
     });
@@ -126,14 +124,12 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <View style={{ width: 24 }} />
-        {/* spacer to balance back icon */}
       </View>
 
       <KeyboardAvoidingView
@@ -151,7 +147,6 @@ export default function EditProfileScreen() {
               <ActivityIndicator style={{ marginTop: 20 }} />
             ) : (
               <>
-                {/* Username Field */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Username</Text>
                   <TextInput
@@ -175,7 +170,6 @@ export default function EditProfileScreen() {
                   />
                 </View>
 
-                {/* DOB Field */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Date of Birth</Text>
                   <TextInput
@@ -187,7 +181,6 @@ export default function EditProfileScreen() {
                   />
                 </View>
 
-                {/* Monthly Income Field */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Monthly Income (RM)</Text>
                   <TextInput
@@ -199,8 +192,6 @@ export default function EditProfileScreen() {
                     keyboardType="numeric"
                   />
                 </View>
-
-                {/* Save Button */}
                 <TouchableOpacity
                   style={[styles.saveButton, saving && { opacity: 0.7 }]}
                   activeOpacity={0.8}

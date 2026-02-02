@@ -29,10 +29,7 @@ function AnimatedTabIcon({
         borderRadius: 24,
         alignItems: "center",
         justifyContent: "center",
-        transform: [
-          { scale },
-          { translateY: focused ? -4 : 0 },
-        ],
+        transform: [{ scale }, { translateY: focused ? -4 : 0 }],
         shadowColor: "#00D09E",
         shadowOpacity: focused ? 0.4 : 0,
         shadowRadius: 6,
@@ -68,9 +65,9 @@ export default function TabsLayout() {
           elevation: 0,
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
-          position: "absolute", // required
+          position: "absolute",
           overflow: "hidden",
-        }
+        },
       }}
     >
       <Tabs.Screen

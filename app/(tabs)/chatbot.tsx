@@ -64,27 +64,15 @@ export default function Chatbot() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" backgroundColor={PRIMARY} />
-      {/* Header (same style family as EduFinance) */}
       <View style={styles.header}>
-        <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#052224" />
-        </TouchableOpacity>
-
         <Text style={styles.headerTitle}>Fin</Text>
-
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={22} color="#052224" />
-        </TouchableOpacity>
       </View>
-
-      {/* White rounded page + keyboard avoiding */}
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: "#fff" }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? tabBarHeight : 0}
       >
         <View style={styles.innerContainer}>
-          {/* Card header inside white page */}
           <View style={styles.cardHeader}>
             <Image
               source={require("../../assets/images/Fin.png")}
@@ -98,7 +86,6 @@ export default function Chatbot() {
             </View>
           </View>
 
-          {/* Chat messages */}
           <ScrollView
             ref={scrollViewRef}
             style={styles.chatContainer}
@@ -119,7 +106,6 @@ export default function Chatbot() {
             {loading && <Text style={styles.loadingText}>🤖 Thinking...</Text>}
           </ScrollView>
 
-          {/* Input row */}
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -148,12 +134,12 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
   },
   header: {
-    backgroundColor: PRIMARY, // ONLY header is green
-    flexDirection: "row",
+    backgroundColor: PRIMARY,
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 25,
+    paddingTop: 25,
     paddingBottom: 60,
   },
   headerTitle: {

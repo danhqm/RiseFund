@@ -23,22 +23,16 @@ function inferCorrectIdx(item: QuizItem): number {
   if (marks(item.explanation2)) return 1;
   if (marks(item.explanation3)) return 2;
 
-  // fallback to correct_index if no marker found
   const ci = Number(item.correct_index);
 
-  // if it's 1..3, convert to 0..2
   if (ci >= 1 && ci <= 3) return ci - 1;
 
-  // if it's already 0..2, use it
   return Math.max(0, Math.min(2, ci));
 }
 
 function getCorrectIdx0(correct_index: number) {
-  // supports both:
-  // 1-based (1,2,3) -> (0,1,2)
-  // 0-based (0,1,2) -> (0,1,2)
   if (correct_index >= 1 && correct_index <= 3) return correct_index - 1;
-  return correct_index; // assume already 0-based
+  return correct_index;
 }
 
 function getTodayDateString() {
@@ -54,7 +48,7 @@ function getTodayKeyLocal() {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`; // YYYY-MM-DD
+  return `${year}-${month}-${day}`;
 }
 
 type Category = "savings" | "budgeting" | "debt";
@@ -66,7 +60,7 @@ type QuizItem = {
   option1: string;
   option2: string;
   option3: string;
-  correct_index: number; // 0,1,2
+  correct_index: number;
   explanation1: string;
   explanation2: string;
   explanation3: string;
@@ -99,16 +93,11 @@ export default function EduFinanceQuizScreen() {
   const [notesLoading, setNotesLoading] = useState<boolean>(false);
 
   const ensureDailyTasksGenerated = useCallback(async () => {
-    // today in local format YYYY-MM-DD
     const taskDate = getTodayKeyLocal();
 
-    // If your SQL function accepts p_date:
     const { error } = await supabase.rpc("generate_daily_edufinance_tasks", {
       p_date: taskDate,
     });
-
-    // If your function DOES NOT accept params, use:
-    // const { error } = await supabase.rpc("generate_daily_edufinance_tasks");
 
     if (error) {
       console.log("generate_daily_edufinance_tasks error:", error.message);
@@ -120,7 +109,6 @@ export default function EduFinanceQuizScreen() {
 
     setNotesLoading(true);
     try {
-      // 1) task-specific note
       if (taskId) {
         const { data: taskNote, error: taskErr } = await supabase
           .from("edu_notes")
@@ -138,7 +126,6 @@ export default function EduFinanceQuizScreen() {
         }
       }
 
-      // 2) fallback: category note
       const { data: catNote, error: catErr } = await supabase
         .from("edu_notes")
         .select("title, content")
@@ -177,7 +164,6 @@ export default function EduFinanceQuizScreen() {
       return;
     }
 
-    // ✅ local YYYY-MM-DD (same helper you used elsewhere)
     const taskDate = getTodayKeyLocal();
 
     const { error: upsertError } = await supabase
@@ -187,12 +173,11 @@ export default function EduFinanceQuizScreen() {
           user_id: user.id,
           task_id: item.id,
           category,
-          task_date: taskDate, // ✅ NEW
+          task_date: taskDate,
           selected_index: selectedIndex,
           is_correct: isCorrect,
         },
         {
-          // ✅ IMPORTANT: include task_date in conflict
           onConflict: "user_id,task_id,task_date",
         },
       );
@@ -232,7 +217,6 @@ export default function EduFinanceQuizScreen() {
       return;
     }
 
-    // Insert a new streak record for today
     const { error: insertError } = await supabase
       .from("user_streaks")
       .insert({ user_id: user.id, date: today });
@@ -251,7 +235,7 @@ export default function EduFinanceQuizScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<
     Record<string, number | null>
-  >({}); // { [quizId]: optionIndex }
+  >({});
 
   const prettyTitle =
     category === "savings"
@@ -334,7 +318,6 @@ export default function EduFinanceQuizScreen() {
     awardStreakIfNeeded();
     saveProgress(item, index, isCorrect);
 
-    // ✅ Debug log (super useful)
     console.log("TASK:", item.title, {
       selected: index,
       correctIdx0,
@@ -342,7 +325,6 @@ export default function EduFinanceQuizScreen() {
     });
   };
 
-  // Loading state
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -381,10 +363,8 @@ export default function EduFinanceQuizScreen() {
     );
   }
 
-  // ✅ Normal render with tasks
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
@@ -393,7 +373,6 @@ export default function EduFinanceQuizScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Content */}
       <View style={styles.innerContainer}>
         <View style={styles.tabRow}>
           <TouchableOpacity
@@ -473,10 +452,8 @@ export default function EduFinanceQuizScreen() {
             </Text>
 
             {quizItems.map((item) => {
-              // ✅ selected is defined HERE (fixes "Cannot find name 'selected'")
               const selected = selectedOption[item.id.toString()] ?? null;
 
-              // ✅ Decide correct answer index ONCE (0,1,2)
               const correctIdx0 = (() => {
                 const marks = (s?: string) =>
                   /✅|correct/i.test(String(s ?? ""));
@@ -514,19 +491,18 @@ export default function EduFinanceQuizScreen() {
 
                     let backgroundColor = "#F1F5F4";
 
-                    // ✅ Only color AFTER user selects
                     if (selected !== null) {
                       if (isSelected && isCorrectOption)
-                        backgroundColor = "#C8F7D0"; // green
+                        backgroundColor = "#C8F7D0";
                       else if (isSelected && !isCorrectOption)
-                        backgroundColor = "#FFD6D6"; // red
+                        backgroundColor = "#FFD6D6";
                     }
 
                     return (
                       <TouchableOpacity
                         key={idx}
                         style={[styles.optionButton, { backgroundColor }]}
-                        onPress={() => handleSelect(item, idx, correctIdx0)} // ✅ pass correctIdx0
+                        onPress={() => handleSelect(item, idx, correctIdx0)}
                       >
                         <Text style={styles.optionText}>{opt.text}</Text>
                       </TouchableOpacity>
@@ -633,7 +609,7 @@ const styles = StyleSheet.create({
   },
 
   tabPillActive: {
-    backgroundColor: "#00D09E", // match your theme
+    backgroundColor: "#00D09E",
   },
 
   tabText: {
@@ -695,10 +671,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   circleBg: {
-    width: 320, // 👈 increase this to make circle bigger
-    height: 320, // 👈 must match width
-    borderRadius: 160, // 👈 width / 2
-    backgroundColor: "#D1FAE5", // soft green
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: "#D1FAE5",
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",

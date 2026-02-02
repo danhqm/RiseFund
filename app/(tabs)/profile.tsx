@@ -24,7 +24,6 @@ export default function ProfileScreen() {
   const [avatarUri, setAvatarUri] = useState(DEFAULT_AVATAR);
 
   const pickAvatar = async () => {
-    // 1️⃣ Get current auth user
     const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
 
@@ -33,7 +32,6 @@ export default function ProfileScreen() {
       return;
     }
 
-    // 2️⃣ Let user pick an image
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -104,13 +102,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#052224" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#052224" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -177,10 +169,10 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
   },
   header: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 25,
+    paddingTop: 25,
     justifyContent: "space-between",
   },
   headerTitle: {

@@ -1,22 +1,24 @@
-// app/splashscreen.tsx
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import { ActivityIndicator, Animated, Image, StyleSheet, Text } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  Image,
+  StyleSheet,
+  Text,
+} from "react-native";
 
 export default function SplashScreen() {
   const router = useRouter();
-  const fadeAnim = useRef(new Animated.Value(1)).current; // 1 = fully visible
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    // Step 1: Hold splash for 2s
     const timer = setTimeout(() => {
-      // Step 2: Fade out animation
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 800, // fade duration
+        duration: 800,
         useNativeDriver: true,
       }).start(() => {
-        // Step 3: Navigate after fade completes
         router.replace("/onboarding");
       });
     }, 2000);

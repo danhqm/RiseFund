@@ -173,7 +173,7 @@ export default function Register() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#00D09E", // same green as your previous button
+    backgroundColor: "#00D09E",
   },
 
   header: {

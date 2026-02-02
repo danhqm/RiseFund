@@ -1,10 +1,13 @@
 // app/_layout.tsx
-import { Poppins_400Regular, Poppins_700Bold, useFonts } from '@expo-google-fonts/poppins';
+import {
+  Poppins_400Regular,
+  Poppins_700Bold,
+  useFonts,
+} from "@expo-google-fonts/poppins";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, View } from "react-native";
 import "react-native-url-polyfill/auto";
-
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -12,7 +15,6 @@ export default function RootLayout() {
     Poppins_700Bold,
   });
 
-  // Show loading spinner until fonts are loaded
   if (!fontsLoaded) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>

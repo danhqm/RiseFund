@@ -25,13 +25,12 @@ function getTodayKeyLocal() {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`; // e.g. 2026-01-24
+  return `${year}-${month}-${day}`;
 }
 
 function computeStreak(dates: string[]): number {
   if (!dates.length) return 0;
 
-  // Sort newest → oldest
   const sorted = [...dates].sort(
     (a, b) => new Date(b).getTime() - new Date(a).getTime(),
   );
@@ -47,7 +46,7 @@ function computeStreak(dates: string[]): number {
     if (diffDays === 1) {
       streak++;
     } else {
-      break; // gap → streak stops
+      break;
     }
   }
 
@@ -96,22 +95,21 @@ type Goal = {
   user_id: string;
   title: string;
   notes: string | null;
-  week_start: string; // "YYYY-MM-DD"
+  week_start: string;
   completed: boolean;
   created_at: string;
 };
 
 function getMonday(d: Date) {
   const date = new Date(d);
-  const day = date.getDay(); // Sun=0 ... Sat=6
-  const diff = (day === 0 ? -6 : 1) - day; // shift to Monday
+  const day = date.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
   date.setDate(date.getDate() + diff);
   date.setHours(0, 0, 0, 0);
   return date;
 }
 
 function toISODateOnly(d: Date) {
-  // returns YYYY-MM-DD in local time
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const da = String(d.getDate()).padStart(2, "0");
@@ -186,7 +184,7 @@ export default function EduFinanceScreen() {
       user_id: user.id,
       title,
       notes: notes ? notes : null,
-      week_start: selectedWeekStart, // weekly goal
+      week_start: selectedWeekStart,
       completed: false,
     };
 
@@ -201,7 +199,6 @@ export default function EduFinanceScreen() {
       return;
     }
 
-    // add new goal on top
     setGoals((prev) => [data as Goal, ...prev]);
     setNewGoalTitle("");
     setNewGoalNotes("");
@@ -211,7 +208,6 @@ export default function EduFinanceScreen() {
   const toggleGoal = useCallback(async (goal: Goal) => {
     const nextCompleted = !goal.completed;
 
-    // Optimistic UI
     setGoals((prev) =>
       prev.map((g) =>
         g.id === goal.id ? { ...g, completed: nextCompleted } : g,
@@ -225,7 +221,6 @@ export default function EduFinanceScreen() {
 
     if (error) {
       console.log("toggleGoal error:", error.message);
-      // rollback if failed
       setGoals((prev) =>
         prev.map((g) =>
           g.id === goal.id ? { ...g, completed: goal.completed } : g,
@@ -270,7 +265,6 @@ export default function EduFinanceScreen() {
         return;
       }
 
-      // Get existing badge codes for this user
       const { data: existing, error: existingError } = await supabase
         .from("user_badges")
         .select("badge_code")
@@ -290,7 +284,6 @@ export default function EduFinanceScreen() {
         badge_description?: string;
       }[] = [];
 
-      // First streak day
       if (streak >= 1 && !owned.has("streak_1")) {
         toInsert.push({
           user_id: user.id,
@@ -300,7 +293,6 @@ export default function EduFinanceScreen() {
         });
       }
 
-      // 3-day streak
       if (streak >= 3 && !owned.has("streak_3")) {
         toInsert.push({
           user_id: user.id,
@@ -310,7 +302,6 @@ export default function EduFinanceScreen() {
         });
       }
 
-      // 7-day streak
       if (streak >= 7 && !owned.has("streak_7")) {
         toInsert.push({
           user_id: user.id,
@@ -320,7 +311,6 @@ export default function EduFinanceScreen() {
         });
       }
 
-      // 30-day streak
       if (streak >= 30 && !owned.has("streak_30")) {
         toInsert.push({
           user_id: user.id,
@@ -346,7 +336,6 @@ export default function EduFinanceScreen() {
         toInsert.map((b) => b.badge_code),
       );
 
-      // refresh local list
       loadBadges();
     },
     [loadBadges],
@@ -363,7 +352,6 @@ export default function EduFinanceScreen() {
         return;
       }
 
-      // 1️⃣ Get existing badge codes for this user
       const { data: existing, error: existingError } = await supabase
         .from("user_badges")
         .select("badge_code")
@@ -382,7 +370,6 @@ export default function EduFinanceScreen() {
         badge_description?: string;
       }[] = [];
 
-      // 💰 Savings badges
       if (savingsCount >= 3 && !owned.has("savings_novice")) {
         toInsert.push({
           user_id: user.id,
@@ -408,7 +395,6 @@ export default function EduFinanceScreen() {
         });
       }
 
-      // 📊 Budgeting badges
       if (budgetingCount >= 3 && !owned.has("budget_novice")) {
         toInsert.push({
           user_id: user.id,
@@ -434,7 +420,6 @@ export default function EduFinanceScreen() {
         });
       }
 
-      // 💳 Debt badges
       if (debtCount >= 3 && !owned.has("debt_novice")) {
         toInsert.push({
           user_id: user.id,
@@ -476,7 +461,6 @@ export default function EduFinanceScreen() {
         toInsert.map((b) => b.badge_code),
       );
 
-      // refresh list so UI shows new badges + progress
       loadBadges();
     },
     [loadBadges],
@@ -525,7 +509,6 @@ export default function EduFinanceScreen() {
     await checkAndAwardTaskBadges(savingsCount, budgetingCount, debtCount);
   }, [checkAndAwardTaskBadges]);
 
-  // 🔹 2. Load streak count
   const loadStreak = useCallback(async () => {
     const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
@@ -555,7 +538,6 @@ export default function EduFinanceScreen() {
     checkAndAwardStreakBadges(streak);
   }, [checkAndAwardStreakBadges, checkAndAwardTaskBadges]);
 
-  // 🔹 3. useFocusEffect: run both whenever screen is focused
   useFocusEffect(
     useCallback(() => {
       loadCompletionCounts();
@@ -580,13 +562,7 @@ export default function EduFinanceScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#052224" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>EduFinance</Text>
-        <TouchableOpacity>
-          <Ionicons name="notifications-outline" size={24} color="#052224" />
-        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView
@@ -620,8 +596,6 @@ export default function EduFinanceScreen() {
                     <Text style={styles.viewAllText}>View all</Text>
                   </TouchableOpacity>
                 </View>
-
-                {/* 🔹 Progress summary */}
                 <Text style={styles.badgeProgressText}>
                   {unlockedBadgeCount} / {TOTAL_BADGES} badges unlocked
                 </Text>
@@ -938,11 +912,11 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY,
   },
   header: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    paddingTop: 20,
+    paddingBottom: 25,
+    paddingTop: 25,
     justifyContent: "space-between",
   },
   headerTitle: {
@@ -1076,10 +1050,8 @@ const styles = StyleSheet.create({
   badgeProgressFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#00D09E", // same PRIMARY green
+    backgroundColor: "#00D09E",
   },
-
-  /* Modal */
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
@@ -1171,30 +1143,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 10,
   },
-
   setGoalsBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
     backgroundColor: "#00D09E",
   },
-
   setGoalsBtnText: {
     color: "#fff",
     fontSize: 12,
     fontWeight: "600",
   },
-
   goalEmptyText: {
     color: "#6B7280",
     fontSize: 13,
     marginTop: 6,
   },
-
   goalList: {
     gap: 10,
   },
-
   goalCard: {
     flexDirection: "row",
     padding: 12,
@@ -1204,16 +1171,13 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     marginBottom: 20,
   },
-
   goalCardCompleted: {
     opacity: 0.75,
   },
-
   goalCardLeft: {
     marginRight: 10,
     justifyContent: "center",
   },
-
   goalCheck: {
     width: 22,
     height: 22,
@@ -1223,65 +1187,53 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   goalCheckOn: {
     borderColor: "#16A34A",
     backgroundColor: "#16A34A",
   },
-
   goalCheckMark: {
     color: "#fff",
     fontWeight: "800",
     fontSize: 14,
     marginTop: -1,
   },
-
   goalCardBody: {
     flex: 1,
   },
-
   goalTitle: {
     fontSize: 14,
     fontWeight: "700",
     color: "#111827",
   },
-
   goalTitleCompleted: {
     textDecorationLine: "line-through",
     color: "#6B7280",
   },
-
   goalNotes: {
     marginTop: 4,
     fontSize: 12,
     color: "#6B7280",
   },
-
   goalNotesCompleted: {
     textDecorationLine: "line-through",
   },
-
-  /* Modal */
   goalModalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     padding: 18,
   },
-
   goalModalCard: {
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
   },
-
   goalModalTitle: {
     fontSize: 16,
     fontWeight: "800",
     marginBottom: 12,
     color: "#111827",
   },
-
   goalModalInput: {
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -1292,31 +1244,26 @@ const styles = StyleSheet.create({
     color: "#111827",
     marginBottom: 10,
   },
-
   goalModalBtnRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: 10,
     marginTop: 4,
   },
-
   goalModalBtn: {
     backgroundColor: "#00D09E",
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 12,
   },
-
   goalModalBtnText: {
     color: "#fff",
     fontWeight: "700",
     fontSize: 13,
   },
-
   goalModalBtnGhost: {
     backgroundColor: "#F3F4F6",
   },
-
   goalModalBtnGhostText: {
     color: "#111827",
     fontWeight: "700",

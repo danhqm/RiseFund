@@ -100,7 +100,6 @@ export default async function handler(req, res) {
         .json({ success: false, error: "Missing imageBase64 or userId" });
     }
 
-    // 1️⃣ Upload to Supabase
     let imageUrl;
     try {
       console.log("📤 Uploading image to Supabase...");
@@ -115,10 +114,9 @@ export default async function handler(req, res) {
 
       if (uploadError) throw uploadError;
 
-      // 🔑 Create a signed URL that OpenAI can access
       const { data: signed, error: signedError } = await supabase.storage
         .from("receipts")
-        .createSignedUrl(fileName, 60 * 10); // 10 minutes
+        .createSignedUrl(fileName, 60 * 10);
 
       if (signedError) throw signedError;
 
@@ -131,9 +129,8 @@ export default async function handler(req, res) {
         .json({ success: false, error: "Supabase upload failed" });
     }
 
-    // 2️⃣ Call OpenAI
     let receiptData;
-    let finalCategory = "OTHER"; // 🔹 default defined OUTSIDE try
+    let finalCategory = "OTHER";
 
     try {
       console.log("🤖 Sending image to OpenAI for analysis...");
@@ -182,7 +179,6 @@ export default async function handler(req, res) {
 
       console.log("📝 OpenAI output text:", outputText);
 
-      // 🧼 CLEANUP STEP — strip ```json fences
       const cleaned = outputText
         .replace(/```json/gi, "")
         .replace(/```/g, "")
@@ -192,7 +188,6 @@ export default async function handler(req, res) {
 
       receiptData = JSON.parse(cleaned);
 
-      // 🔹 Normalise LLM category + fallback to local rules
       const llmCategory = (receiptData.category || "").toUpperCase();
       const validCategories = [
         "FOOD_AND_DRINK",
@@ -218,7 +213,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // 3️⃣ Insert into DB
     let savedReceipt;
     try {
       console.log("💾 Inserting receipt into Supabase table...");
@@ -233,7 +227,7 @@ export default async function handler(req, res) {
             receipt_date: receiptData.receipt_date,
             items: receiptData.items,
             image_url: imageUrl,
-            category: finalCategory, // ✅ now defined
+            category: finalCategory,
           },
         ])
         .select()
@@ -250,7 +244,6 @@ export default async function handler(req, res) {
         .json({ success: false, error: "Failed to save receipt" });
     }
 
-    // 4️⃣ Success
     return res.json({ success: true, data: savedReceipt });
   } catch (err) {
     console.error("💥 Top-level OCR handler error:", err);

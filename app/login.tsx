@@ -1,6 +1,13 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../utils/supabase";
 
@@ -16,7 +23,6 @@ export default function Login() {
       return;
     }
 
-    // 1️⃣ Find email using username
     const { data: userProfile, error: profileError } = await supabase
       .from("users")
       .select("email")
@@ -28,7 +34,6 @@ export default function Login() {
       return;
     }
 
-    // 2️⃣ Login using email
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: userProfile.email,
       password,
@@ -38,7 +43,7 @@ export default function Login() {
       if (authError.message.includes("Email not confirmed")) {
         Alert.alert(
           "Email not verified",
-          "Please check your email and confirm your account before logging in."
+          "Please check your email and confirm your account before logging in.",
         );
       } else {
         Alert.alert("Login Failed", authError.message);
@@ -46,7 +51,6 @@ export default function Login() {
       return;
     }
 
-    // ✅ Success
     router.replace("/(tabs)");
   };
 
@@ -74,18 +78,15 @@ export default function Login() {
 
     Alert.alert(
       "Verification sent",
-      "Please check your email to confirm your account."
+      "Please check your email to confirm your account.",
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <Text style={styles.header}>Welcome</Text>
 
-      {/* Card */}
       <View style={styles.card}>
-        {/* Username / Email */}
         <Text style={styles.label}>Username</Text>
         <TextInput
           placeholder="Username"
@@ -94,8 +95,6 @@ export default function Login() {
           value={username}
           onChangeText={setUsername}
         />
-
-        {/* Password */}
         <Text style={styles.label}>Password</Text>
         <View style={styles.passwordContainer}>
           <TextInput
@@ -108,8 +107,7 @@ export default function Login() {
           />
         </View>
 
-        {/* Login Button */}
-        <TouchableOpacity style={styles.loginButton } onPress={handleLogin}>
+        <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginText}>Log In</Text>
         </TouchableOpacity>
 
@@ -117,10 +115,14 @@ export default function Login() {
           <Text style={styles.resendText}>Resend verification email</Text>
         </TouchableOpacity>
 
-        {/* Footer */}
         <Text style={styles.footer}>
           Don’t have an account?{" "}
-          <Text style={styles.footerLink } onPress={() => router.push("/register")}>Sign Up</Text>
+          <Text
+            style={styles.footerLink}
+            onPress={() => router.push("/register")}
+          >
+            Sign Up
+          </Text>
         </Text>
       </View>
     </SafeAreaView>
@@ -223,13 +225,11 @@ const styles = StyleSheet.create({
     color: "#00D09E",
     fontFamily: "Poppins_700Bold",
   },
-  
+
   resendText: {
     marginTop: 16,
     color: "#00D09E",
     textAlign: "center",
     fontFamily: "Poppins_500Medium",
   },
-
 });
-
