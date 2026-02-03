@@ -114,7 +114,7 @@ export default function ProfileScreen() {
             <Image style={styles.avatar} source={{ uri: avatarUri }} />
 
             <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={18} color="#fff" />
+              <Ionicons name="camera" size={18} color="#000" />
             </View>
           </TouchableOpacity>
           {loading ? (
