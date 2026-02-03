@@ -92,18 +92,6 @@ export default function EduFinanceQuizScreen() {
   const [notesContent, setNotesContent] = useState<string>("");
   const [notesLoading, setNotesLoading] = useState<boolean>(false);
 
-  const ensureDailyTasksGenerated = useCallback(async () => {
-    const taskDate = getTodayKeyLocal();
-
-    const { error } = await supabase.rpc("generate_daily_edufinance_tasks", {
-      p_date: taskDate,
-    });
-
-    if (error) {
-      console.log("generate_daily_edufinance_tasks error:", error.message);
-    }
-  }, []);
-
   const loadNotes = useCallback(async () => {
     if (!category) return;
 
@@ -264,8 +252,6 @@ export default function EduFinanceQuizScreen() {
       setLoading(true);
       setError(null);
 
-      await ensureDailyTasksGenerated();
-
       const { data, error } = await supabase
         .from("edufinance_tasks")
         .select("*")
@@ -305,7 +291,7 @@ export default function EduFinanceQuizScreen() {
     };
 
     fetchTasks();
-  }, [category, taskId, loadNotes, ensureDailyTasksGenerated]);
+  }, [category, taskId, loadNotes]);
 
   const handleSelect = (item: QuizItem, index: number, correctIdx0: number) => {
     setSelectedOption((prev) => ({
