@@ -81,6 +81,14 @@ function categorizeLine(desc = "") {
   return "OTHER";
 }
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "10mb",
+    },
+  },
+};
+
 export default async function handler(req, res) {
   console.log("🚀 /api/ocr invoked");
 
