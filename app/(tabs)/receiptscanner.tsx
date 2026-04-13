@@ -79,10 +79,21 @@ export default function ReceiptScanner() {
 
   const pickImage = async () => {
     setError(null);
-    const result = await ImagePicker.launchImageLibraryAsync({
+
+    // 1. Ask for camera permission first
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (permissionResult.granted === false) {
+      setError("Camera permission is required to scan receipts.");
+      return;
+    }
+
+    // 2. Launch the camera instead of the gallery
+    const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
+      allowsEditing: true, // Still highly recommended to let them crop the receipt!
       base64: true,
-      quality: 0.5,
+      quality: 0.2, // Keeps your payload small for the backend
     });
 
     if (!result.canceled && result.assets[0].base64) {

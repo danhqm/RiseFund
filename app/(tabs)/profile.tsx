@@ -17,6 +17,7 @@ import { supabase } from "../../utils/supabase";
 const MENU_ITEMS = [
   { label: "Edit Profile", icon: "person-outline" as const },
   { label: "Logout", icon: "log-out-outline" as const },
+  { label: "LHDN Tax Relief", icon: "document-text-outline" as const },
 ];
 
 export default function ProfileScreen() {
@@ -144,6 +145,9 @@ export default function ProfileScreen() {
                   if (item.label === "Logout") {
                     supabase.auth.signOut();
                     router.replace("/login");
+                  }
+                  if (item.label === "LHDN Tax Relief") {
+                    router.push("/lhdn");
                   }
                 }}
               >
