@@ -266,7 +266,8 @@ export default function HomeScreen() {
       .select("total_amount, created_at")
       .eq("user_id", user.id)
       .gte("created_at", firstOfMonth.toISOString())
-      .lte("created_at", today.toISOString());
+      .lte("created_at", today.toISOString())
+      .is("lhdn_category", null);
 
     if (monthError) {
       console.log("Home: month receipts error", monthError);
@@ -299,6 +300,7 @@ export default function HomeScreen() {
         "id, user_id, merchant_name, total_amount, receipt_date, category, created_at",
       )
       .eq("user_id", user.id)
+      .is("lhdn_category", null)
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -329,7 +331,8 @@ export default function HomeScreen() {
       .select("total_amount, created_at, category")
       .eq("user_id", user.id)
       .gte("created_at", startOfWeek.toISOString())
-      .lt("created_at", endOfWeek.toISOString());
+      .lt("created_at", endOfWeek.toISOString())
+      .is("lhdn_category", null);
 
     if (weekError) {
       console.log("Home: week receipts error", weekError);
@@ -446,7 +449,8 @@ export default function HomeScreen() {
         .select("total_amount, category, receipt_date")
         .eq("user_id", user.id)
         .gte("created_at", fourteenDaysAgoStr)
-        .lte("created_at", todayStr);
+        .lte("created_at", todayStr)
+        .is("lhdn_category", null);
 
       if (insightError) {
         console.log("Home: insight receipts error", insightError);
