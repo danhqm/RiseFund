@@ -99,8 +99,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { imageBase64, userId } = req.body || {};
-    console.log("BODY:", { hasImage: !!imageBase64, userId });
+    // 🌟 NEW 1: Catch the LHDN categories from the React Native app
+    const { imageBase64, userId, lhdnCategory, lhdnSubcategory } =
+      req.body || {};
+    console.log("BODY:", {
+      hasImage: !!imageBase64,
+      userId,
+      lhdnCategory,
+      lhdnSubcategory,
+    });
 
     if (!imageBase64 || !userId) {
       return res
@@ -143,27 +150,28 @@ export default async function handler(req, res) {
     try {
       console.log("🤖 Sending image to OpenAI for analysis...");
 
+      // 🌟 NEW 2: Tell OpenAI to check if this is an LHDN claim
+      let promptText =
+        "Extract the receipt data from this image. Return ONLY valid JSON. No code fences, no commentary. ";
+
+      if (lhdnCategory) {
+        promptText += `The user claims this receipt is for LHDN tax relief category: '${lhdnCategory}'. Validate if the items make sense for this claim. `;
+        promptText += `Format: { "merchant_name": "string", "total_amount": number, "receipt_date": "YYYY-MM-DD", "items": [{"name": "string", "price": number}], "is_valid_claim": boolean }`;
+      } else {
+        promptText +=
+          "Infer a high-level spending category. Allowed categories: FOOD_AND_DRINK, GROCERIES, TRANSPORT, SHOPPING, BILLS, ENTERTAINMENT, OTHER. ";
+        promptText += `Format: { "merchant_name": "string", "total_amount": number, "receipt_date": "YYYY-MM-DD", "items": [{"name": "string", "price": number}], "category": "FOOD_AND_DRINK" }`;
+      }
+
       const response = await openai.responses.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini", // Updated to the faster/cheaper model
         input: [
           {
             role: "user",
             content: [
               {
                 type: "input_text",
-                text:
-                  "Extract the receipt data from this image. " +
-                  "Return ONLY valid JSON. No code fences, no commentary. " +
-                  "Infer a high-level spending category. Allowed categories: " +
-                  "FOOD_AND_DRINK, GROCERIES, TRANSPORT, SHOPPING, BILLS, ENTERTAINMENT, OTHER. " +
-                  "Format: " +
-                  `{
-                    "merchant_name": "string",
-                    "total_amount": number,
-                    "receipt_date": "YYYY-MM-DD",
-                    "items": [{"name": "string", "price": number}],
-                    "category": "FOOD_AND_DRINK"
-                  }`,
+                text: promptText,
               },
               {
                 type: "input_image",
@@ -196,23 +204,27 @@ export default async function handler(req, res) {
 
       receiptData = JSON.parse(cleaned);
 
-      const llmCategory = (receiptData.category || "").toUpperCase();
-      const validCategories = [
-        "FOOD_AND_DRINK",
-        "GROCERIES",
-        "TRANSPORT",
-        "SHOPPING",
-        "BILLS",
-        "ENTERTAINMENT",
-        "OTHER",
-      ];
+      if (!lhdnCategory) {
+        const llmCategory = (receiptData.category || "").toUpperCase();
+        const validCategories = [
+          "FOOD_AND_DRINK",
+          "GROCERIES",
+          "TRANSPORT",
+          "SHOPPING",
+          "BILLS",
+          "ENTERTAINMENT",
+          "OTHER",
+        ];
 
-      finalCategory = validCategories.includes(llmCategory)
-        ? llmCategory
-        : categorizeLine(
-            receiptData.merchant_name ||
-              JSON.stringify(receiptData.items || []),
-          );
+        finalCategory = validCategories.includes(llmCategory)
+          ? llmCategory
+          : categorizeLine(
+              receiptData.merchant_name ||
+                JSON.stringify(receiptData.items || []),
+            );
+      } else {
+        finalCategory = "TAX_RELIEF"; // Overwrite the main category if it's an LHDN claim
+      }
     } catch (err) {
       console.error("❌ OpenAI extraction error:", err);
       return res.status(500).json({
@@ -225,6 +237,9 @@ export default async function handler(req, res) {
     try {
       console.log("💾 Inserting receipt into Supabase table...");
 
+      // 🌟 NEW 3: Calculate the year and insert the 3 new fields into Supabase
+      const currentTaxYear = new Date().getFullYear();
+
       const { data, error: insertError } = await supabase
         .from("receipts")
         .insert([
@@ -236,6 +251,9 @@ export default async function handler(req, res) {
             items: receiptData.items,
             image_url: imageUrl,
             category: finalCategory,
+            lhdn_category: lhdnCategory || null,
+            lhdn_subcategory: lhdnSubcategory || null,
+            tax_year: lhdnCategory ? currentTaxYear : null,
           },
         ])
         .select()
