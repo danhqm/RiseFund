@@ -254,6 +254,10 @@ export default async function handler(req, res) {
             lhdn_category: lhdnCategory || null,
             lhdn_subcategory: lhdnSubcategory || null,
             tax_year: lhdnCategory ? currentTaxYear : null,
+            ai_validation_passed:
+              receiptData.is_valid_claim !== undefined
+                ? receiptData.is_valid_claim
+                : null,
           },
         ])
         .select()

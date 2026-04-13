@@ -93,7 +93,7 @@ export default function ReceiptScanner() {
       mediaTypes: ["images"],
       allowsEditing: true, // Still highly recommended to let them crop the receipt!
       base64: true,
-      quality: 0.2, // Keeps your payload small for the backend
+      quality: 0.5, // Keeps your payload small for the backend
     });
 
     if (!result.canceled && result.assets[0].base64) {
