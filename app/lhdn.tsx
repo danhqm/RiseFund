@@ -146,7 +146,9 @@ const LHDN_CONTENT: Record<string, any[]> = {
 
 export default function LHDNClaimScreen() {
   const router = useRouter();
-  const [fullImage, setFullImage] = useState<string | null>(null);
+  const [fullImage, setFullImage] = useState<
+    { id: string; image_url: string } | any | null
+  >(null);
   const [activeTab, setActiveTab] = useState(TABS[0]); // Starts on "Summary"
   const [loading, setLoading] = useState(false);
   const [scanningId, setScanningId] = useState<string | null>(null);
@@ -321,6 +323,39 @@ export default function LHDNClaimScreen() {
     } finally {
       setFetchingReceipts(false);
     }
+  };
+
+  const deleteReceipt = async (receiptId: string) => {
+    Alert.alert(
+      "Delete Receipt",
+      "Are you sure you want to delete this receipt? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from("receipts")
+                .delete()
+                .eq("id", receiptId);
+
+              if (error) throw error;
+
+              setSavedReceipts((prev) =>
+                prev.filter((r) => r.id !== receiptId),
+              );
+
+              setFullImage(null);
+            } catch (err) {
+              console.error("Delete error:", err);
+              Alert.alert("Error", "Could not delete the receipt.");
+            }
+          },
+        },
+      ],
+    );
   };
 
   const renderSummaryDashboard = () => {
@@ -499,7 +534,7 @@ export default function LHDNClaimScreen() {
                     ) : (
                       <>
                         <Ionicons name="camera" size={18} color="#fff" />
-                        <Text style={styles.scanActionText}>Scan Receipt</Text>
+                        <Text style={styles.scanActionText}>Scan</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -550,7 +585,7 @@ export default function LHDNClaimScreen() {
                   style={styles.receiptCard}
                   activeOpacity={0.7}
                   onPress={() => {
-                    if (r.image_url) setFullImage(r.image_url);
+                    if (r.image_url) setFullImage(r);
                   }}
                 >
                   {r.image_url && (
@@ -576,6 +611,13 @@ export default function LHDNClaimScreen() {
                       </Text>
                     )}
                   </View>
+
+                  <TouchableOpacity
+                    style={{ padding: 10, justifyContent: "center" }}
+                    onPress={() => deleteReceipt(r.id)}
+                  >
+                    <Ionicons name="trash-outline" size={24} color="#FF6B6B" />
+                  </TouchableOpacity>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -590,12 +632,63 @@ export default function LHDNClaimScreen() {
                 <Ionicons name="close-circle" size={40} color="#fff" />
               </TouchableOpacity>
               <Image
-                source={{ uri: fullImage }}
+                source={{ uri: fullImage.image_url }}
                 style={styles.fullImage}
                 resizeMode="contain"
               />
+
+              <TouchableOpacity
+                style={{
+                  position: "absolute",
+                  bottom: 50,
+                  backgroundColor: "#FF6B6B",
+                  paddingHorizontal: 30,
+                  paddingVertical: 15,
+                  borderRadius: 30,
+                  flexDirection: "row",
+                  alignItems: "center",
+                }}
+                onPress={() => deleteReceipt(fullImage.id)}
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={20}
+                  color="#fff"
+                  style={{ marginRight: 8 }}
+                />
+                <Text
+                  style={{ color: "#fff", fontSize: 16, fontWeight: "bold" }}
+                >
+                  Delete Receipt
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
+        </View>
+      </Modal>
+
+      <Modal visible={infoModalVisible} transparent={true} animationType="fade">
+        <View style={styles.infoModalOverlay}>
+          <View style={styles.infoModalCard}>
+            <View style={styles.infoModalHeader}>
+              <Ionicons name="information-circle" size={24} color="#4caf50" />
+              <Text style={styles.infoModalTitle}>Syarat Kelayakan</Text>
+            </View>
+
+            <ScrollView
+              style={{ maxHeight: 300 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={styles.infoModalBody}>{currentInfoText}</Text>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.infoModalButton}
+              onPress={() => setInfoModalVisible(false)}
+            >
+              <Text style={styles.infoModalButtonText}>Faham (Understood)</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -969,11 +1062,11 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
   fullImageOverlay: {
-    ...StyleSheet.absoluteFillObject, // Stretches to fill the modal
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.9)",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 100, // Ensures it sits on top of the list
+    zIndex: 100,
   },
   fullImageCloseButton: {
     position: "absolute",

@@ -157,8 +157,24 @@ export default async function handler(req, res) {
         promptText += `Format: { "merchant_name": "string", "total_amount": number, "receipt_date": "YYYY-MM-DD", "items": [{"name": "string", "price": number}], "is_valid_claim": boolean }`;
       } else {
         promptText +=
-          "Infer a high-level spending category. Allowed categories: FOOD_AND_DRINK, GROCERIES, TRANSPORT, SHOPPING, BILLS, ENTERTAINMENT, OTHER. ";
-        promptText += `Format: { "merchant_name": "string", "total_amount": number, "receipt_date": "YYYY-MM-DD", "items": [{"name": "string", "price": number}], "category": "FOOD_AND_DRINK" }`;
+          "You are an expert personal finance assistant. Analyze the merchant name and the purchased items to determine the overarching spending category. ";
+        promptText +=
+          "You MUST categorize the receipt into exactly one of these predefined categories based on their definitions: ";
+        promptText +=
+          "1. 'FOOD_AND_DRINK': Prepared meals, restaurants, cafes, and fast food. ";
+        promptText +=
+          "2. 'GROCERIES': Supermarkets, raw food ingredients, and basic household consumables. ";
+        promptText +=
+          "3. 'TRANSPORT': Commuting, ride-hailing, petrol, parking, and tolls. ";
+        promptText +=
+          "4. 'SHOPPING': Retail goods, physical products, e-commerce, electronics, hardware, clothing, and personal items. ";
+        promptText +=
+          "5. 'BILLS': Utilities, telecommunications, and recurring services. ";
+        promptText +=
+          "6. 'ENTERTAINMENT': Leisure activities, movies, gaming, and digital subscriptions. ";
+        promptText +=
+          "7. 'OTHER': Only use this as a last resort if it truly fits none of the above concepts. ";
+        promptText += `Return the exact category string. Format: { "merchant_name": "string", "total_amount": number, "receipt_date": "YYYY-MM-DD", "items": [{"name": "string", "price": number}], "category": "SHOPPING" }`;
       }
 
       const response = await openai.responses.create({

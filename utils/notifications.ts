@@ -50,7 +50,6 @@ export async function setupSmartNotifications() {
     const randomMsg =
       SMART_MESSAGES[Math.floor(Math.random() * SMART_MESSAGES.length)];
 
-    // Set time to 8:00 PM for each day
     const triggerDate = new Date();
     triggerDate.setDate(triggerDate.getDate() + i);
     triggerDate.setHours(20, 0, 0, 0);
@@ -68,8 +67,4 @@ export async function setupSmartNotifications() {
       },
     });
   }
-
-  console.log(
-    "✅ Smart Notifications scheduled for the next 7 days at 8:00 PM!",
-  );
 }
