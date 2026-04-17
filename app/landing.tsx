@@ -13,7 +13,7 @@ export default function LandingScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>RiseFund</Text>
+        <Text style={styles.appName}>SafeSpend</Text>
         <Text style={styles.description}>
           Master Your Money, Design Your Future.
         </Text>

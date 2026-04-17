@@ -33,7 +33,7 @@ export default function SplashScreen() {
         style={styles.logo}
         resizeMode="contain"
       />
-      <Text style={styles.title}>RiseFund</Text>
+      <Text style={styles.title}>SafeSpend</Text>
       <ActivityIndicator size="large" color="#fff" style={{ marginTop: 20 }} />
     </Animated.View>
   );

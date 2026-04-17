@@ -129,13 +129,11 @@ export default async function handler(req, res) {
 
       if (uploadError) throw uploadError;
 
-      const { data: signed, error: signedError } = await supabase.storage
+      const { data: publicUrlData } = supabase.storage
         .from("receipts")
-        .createSignedUrl(fileName, 60 * 10);
+        .getPublicUrl(fileName);
 
-      if (signedError) throw signedError;
-
-      imageUrl = signed.signedUrl;
+      imageUrl = publicUrlData.publicUrl;
       console.log("✅ Image uploaded, signed URL:", imageUrl);
     } catch (err) {
       console.error("❌ Supabase upload error:", err);

@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import ConfettiCannon from "react-native-confetti-cannon";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { setupSmartNotifications } from "../../utils/notifications";
 import { supabase } from "../../utils/supabase";
 
 const PRIMARY = "#00D09E";
@@ -173,17 +174,17 @@ export default function HomeScreen() {
   const prevStreakRef = useRef<number>(0);
 
   useEffect(() => {
-    const prev = prevStreakRef.current;
+    // Set up the daily smart reminders!
+    setupSmartNotifications();
 
+    const prev = prevStreakRef.current;
     if (streakCount > prev) {
       const milestones = new Set([3, 7, 30]);
-
       if (milestones.has(streakCount)) {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 2500);
       }
     }
-
     prevStreakRef.current = streakCount;
   }, [streakCount]);
 
@@ -243,13 +244,9 @@ export default function HomeScreen() {
       console.log("Home: profile error", profileError);
     } else if (profile) {
       setUsername(profile.username || "User");
-
-      if (profile.avatar_url) {
-        setAvatarUrl(profile.avatar_url);
-      }
+      if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
 
       const rawIncome = profile.monthy_income;
-
       if (typeof rawIncome === "number") incomeNum = rawIncome;
       else incomeNum = parseFloat(rawIncome ?? "0");
 
@@ -258,12 +255,13 @@ export default function HomeScreen() {
 
     const today = new Date();
     const todayStr = today.toISOString().split("T")[0];
-
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
+    // 1. BULLETPROOF MONTH RECEIPTS
     const { data: monthReceipts, error: monthError } = await supabase
       .from("receipts")
-      .select("total_amount, created_at")
+      // We MUST select lhdn_category here so the app knows what it is!
+      .select("total_amount, created_at, lhdn_category")
       .eq("user_id", user.id)
       .gte("created_at", firstOfMonth.toISOString())
       .lte("created_at", today.toISOString())
@@ -272,10 +270,12 @@ export default function HomeScreen() {
     if (monthError) {
       console.log("Home: month receipts error", monthError);
     } else if (monthReceipts) {
-      const sum = monthReceipts.reduce(
-        (acc: number, r: any) => acc + Number(r.total_amount || 0),
-        0,
-      );
+      const sum = monthReceipts.reduce((acc: number, r: any) => {
+        // JS Safety Net: Skip if it's an LHDN receipt
+        if (r.lhdn_category) return acc;
+        return acc + Number(r.total_amount || 0);
+      }, 0);
+
       setTotalExpense(sum);
       setMonthReceiptCount(monthReceipts.length);
       const effectiveIncome = incomeNum > 0 ? incomeNum : 1;
@@ -294,10 +294,11 @@ export default function HomeScreen() {
       await awardScannerBadges(totalReceipts);
     }
 
+    // 2. BULLETPROOF LAST RECEIPT
     const { data: lastRows, error: lastError } = await supabase
       .from("receipts")
       .select(
-        "id, user_id, merchant_name, total_amount, receipt_date, category, created_at",
+        "id, user_id, merchant_name, total_amount, receipt_date, category, created_at, lhdn_category",
       )
       .eq("user_id", user.id)
       .is("lhdn_category", null)
@@ -307,9 +308,13 @@ export default function HomeScreen() {
     if (lastError) {
       console.log("Home: last receipt error", lastError);
     } else if (lastRows && lastRows.length > 0) {
-      setLastReceipt(lastRows[0]);
+      // JS Safety Net
+      if (!lastRows[0].lhdn_category) {
+        setLastReceipt(lastRows[0]);
+      } else {
+        setLastReceipt(null);
+      }
     } else {
-      console.log("ℹ️ No receipts found for this user yet");
       setLastReceipt(null);
     }
 
@@ -326,9 +331,20 @@ export default function HomeScreen() {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 7);
 
+    const points: WeeklyPoint[] = [
+      { label: "Mon", total: 0, categories: {} },
+      { label: "Tue", total: 0, categories: {} },
+      { label: "Wed", total: 0, categories: {} },
+      { label: "Thu", total: 0, categories: {} },
+      { label: "Fri", total: 0, categories: {} },
+      { label: "Sat", total: 0, categories: {} },
+      { label: "Sun", total: 0, categories: {} },
+    ];
+
+    // 3. BULLETPROOF WEEKLY CHART
     const { data: weekReceipts, error: weekError } = await supabase
       .from("receipts")
-      .select("total_amount, created_at, category")
+      .select("total_amount, created_at, category, lhdn_category")
       .eq("user_id", user.id)
       .gte("created_at", startOfWeek.toISOString())
       .lt("created_at", endOfWeek.toISOString())
@@ -337,214 +353,190 @@ export default function HomeScreen() {
     if (weekError) {
       console.log("Home: week receipts error", weekError);
     } else {
-      const points: WeeklyPoint[] = [
-        { label: "Mon", total: 0, categories: {} },
-        { label: "Tue", total: 0, categories: {} },
-        { label: "Wed", total: 0, categories: {} },
-        { label: "Thu", total: 0, categories: {} },
-        { label: "Fri", total: 0, categories: {} },
-        { label: "Sat", total: 0, categories: {} },
-        { label: "Sun", total: 0, categories: {} },
-      ];
+      (weekReceipts || []).forEach((row: any) => {
+        // JS Safety Net: Throw it out if it has an LHDN category!
+        if (row.lhdn_category) return;
 
-      const { data: weekReceipts, error: weekError } = await supabase
-        .from("receipts")
-        .select("total_amount, created_at, category")
-        .eq("user_id", user.id)
-        .gte("created_at", startOfWeek.toISOString())
-        .lt("created_at", endOfWeek.toISOString());
+        const utcDate = new Date(row.created_at);
+        const localDate = new Date(
+          utcDate.getTime() + utcDate.getTimezoneOffset() * -60000,
+        );
+        const js = localDate.getDay();
+        const idx = js === 0 ? 6 : js - 1;
+        const amount = Number(row.total_amount || 0);
+        const rawCat = (row.category || "OTHER") as string;
+        const cat = CATEGORY_COLORS[rawCat] ? rawCat : "OTHER";
 
-      if (weekError) {
-        console.log("Home: week receipts error", weekError);
-      } else {
-        (weekReceipts || []).forEach((row: any) => {
-          const utcDate = new Date(row.created_at);
-
-          const localDate = new Date(
-            utcDate.getTime() + utcDate.getTimezoneOffset() * -60000,
-          );
-
-          const js = localDate.getDay();
-          const idx = js === 0 ? 6 : js - 1;
-
-          const amount = Number(row.total_amount || 0);
-          const rawCat = (row.category || "OTHER") as string;
-          const cat = CATEGORY_COLORS[rawCat] ? rawCat : "OTHER";
-
-          points[idx].total += amount;
-          points[idx].categories[cat] =
-            (points[idx].categories[cat] || 0) + amount;
-        });
-
-        setWeeklyData(points);
-      }
-      const weeklyTotal = points.reduce((acc, p) => acc + p.total, 0);
-
-      const byCat: Record<string, number> = {};
-      points.forEach((p) => {
-        Object.entries(p.categories).forEach(([cat, amt]) => {
-          byCat[cat] = (byCat[cat] || 0) + Number(amt || 0);
-        });
+        points[idx].total += amount;
+        points[idx].categories[cat] =
+          (points[idx].categories[cat] || 0) + amount;
       });
-      const topCategories = Object.entries(byCat)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([category, amount]) => ({
-          category,
-          amount: Number(amount.toFixed(2)),
-        }));
 
-      const weekStartStr = startOfWeek.toISOString().split("T")[0];
-      const weekEndStr = endOfWeek.toISOString().split("T")[0];
+      setWeeklyData(points);
+    }
 
-      const { data: weekGoals, error: goalsErr } = await supabase
-        .from("user_goals")
-        .select("title, notes, completed, week_start")
-        .eq("user_id", user.id)
-        .eq("week_start", weekStartStr);
+    const weeklyTotal = points.reduce((acc, p) => acc + p.total, 0);
 
-      if (goalsErr) console.log("Home: goals error", goalsErr);
+    const byCat: Record<string, number> = {};
+    points.forEach((p) => {
+      Object.entries(p.categories).forEach(([cat, amt]) => {
+        byCat[cat] = (byCat[cat] || 0) + Number(amt || 0);
+      });
+    });
 
-      const weeklyIncomeEstimate = incomeNum > 0 ? incomeNum / 4 : 0;
+    const topCategories = Object.entries(byCat)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([category, amount]) => ({
+        category,
+        amount: Number(amount.toFixed(2)),
+      }));
 
-      const payload = {
-        userId: user.id,
-        currency: "MYR",
-        month: today.getMonth() + 1,
-        year: today.getFullYear(),
+    const weekStartStr = startOfWeek.toISOString().split("T")[0];
+    const weekEndStr = endOfWeek.toISOString().split("T")[0];
 
-        monthlyIncome: incomeNum,
-        weeklyIncomeEstimate,
-        weekStartStr,
-        weekEndStr,
-        weeklyExpense: Number(weeklyTotal.toFixed(2)),
-        topSpendCategories: topCategories,
+    const { data: weekGoals, error: goalsErr } = await supabase
+      .from("user_goals")
+      .select("title, notes, completed, week_start")
+      .eq("user_id", user.id)
+      .eq("week_start", weekStartStr);
 
-        weeklyGoals: (weekGoals || []).map((g: any) => ({
-          title: g.title,
-          notes: g.notes,
-          completed: g.completed,
-          week_start: g.week_start,
-        })),
-      };
+    if (goalsErr) console.log("Home: goals error", goalsErr);
 
-      await fetchAIInsights(payload);
+    const weeklyIncomeEstimate = incomeNum > 0 ? incomeNum / 4 : 0;
 
-      const { data: streakRows, error: streakError } = await supabase
-        .from("user_streaks")
-        .select("date")
-        .eq("user_id", user.id);
+    const payload = {
+      userId: user.id,
+      currency: "MYR",
+      month: today.getMonth() + 1,
+      year: today.getFullYear(),
+      monthlyIncome: incomeNum,
+      weeklyIncomeEstimate,
+      weekStartStr,
+      weekEndStr,
+      weeklyExpense: Number(weeklyTotal.toFixed(2)),
+      topSpendCategories: topCategories,
+      weeklyGoals: (weekGoals || []).map((g: any) => ({
+        title: g.title,
+        notes: g.notes,
+        completed: g.completed,
+        week_start: g.week_start,
+      })),
+    };
 
-      if (streakError) {
-        console.log("Home: streak error", streakError);
-      } else if (streakRows) {
-        const dates = streakRows.map((r: any) => r.date as string);
-        setStreakCount(computeStreak(dates));
-      }
+    // AI will now only get the clean, non-LHDN data
+    await fetchAIInsights(payload);
 
-      const fourteenDaysAgoStr = getDateNDaysAgo(13);
+    const { data: streakRows, error: streakError } = await supabase
+      .from("user_streaks")
+      .select("date")
+      .eq("user_id", user.id);
 
-      const { data: insightReceipts, error: insightError } = await supabase
-        .from("receipts")
-        .select("total_amount, category, receipt_date")
-        .eq("user_id", user.id)
-        .gte("created_at", fourteenDaysAgoStr)
-        .lte("created_at", todayStr)
-        .is("lhdn_category", null);
+    if (streakError) {
+      console.log("Home: streak error", streakError);
+    } else if (streakRows) {
+      const dates = streakRows.map((r: any) => r.date as string);
+      setStreakCount(computeStreak(dates));
+    }
 
-      if (insightError) {
-        console.log("Home: insight receipts error", insightError);
-        setInsights([]);
-      } else if (insightReceipts) {
-        const now = new Date();
-        const startOfThisWeek = new Date(now);
-        startOfThisWeek.setDate(now.getDate() - now.getDay());
-        startOfThisWeek.setHours(0, 0, 0, 0);
+    const fourteenDaysAgoStr = getDateNDaysAgo(13);
 
-        const startOfLastWeek = new Date(startOfThisWeek);
-        startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+    // 4. BULLETPROOF INSIGHT RECEIPTS
+    const { data: insightReceipts, error: insightError } = await supabase
+      .from("receipts")
+      .select("total_amount, category, receipt_date, lhdn_category")
+      .eq("user_id", user.id)
+      .gte("created_at", fourteenDaysAgoStr)
+      .lte("created_at", todayStr)
+      .is("lhdn_category", null);
 
-        const thisWeekByCat: Record<string, number> = {};
-        const lastWeekByCat: Record<string, number> = {};
-        let thisWeekTotal = 0;
-        let lastWeekTotal = 0;
+    if (insightError) {
+      console.log("Home: insight receipts error", insightError);
+      setInsights([]);
+    } else if (insightReceipts) {
+      const now = new Date();
+      const startOfThisWeek = new Date(now);
+      startOfThisWeek.setDate(now.getDate() - now.getDay());
+      startOfThisWeek.setHours(0, 0, 0, 0);
 
-        (insightReceipts || []).forEach(async (row: any) => {
-          const categoryTotals: Record<string, number> = {};
+      const startOfLastWeek = new Date(startOfThisWeek);
+      startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
 
-          for (const cat in thisWeekByCat) {
-            categoryTotals[cat] =
-              (categoryTotals[cat] || 0) + thisWeekByCat[cat];
-          }
-          for (const cat in lastWeekByCat) {
-            categoryTotals[cat] =
-              (categoryTotals[cat] || 0) + lastWeekByCat[cat];
-          }
+      const thisWeekByCat: Record<string, number> = {};
+      const lastWeekByCat: Record<string, number> = {};
+      let thisWeekTotal = 0;
+      let lastWeekTotal = 0;
 
-          await awardCategoryBadges(categoryTotals);
-          const date = new Date(row.receipt_date);
-          const amount = Number(row.total_amount) || 0;
-          const cat = (row.category || "OTHER") as string;
+      (insightReceipts || []).forEach(async (row: any) => {
+        // JS Safety Net: Ignore LHDN
+        if (row.lhdn_category) return;
 
-          if (date >= startOfThisWeek) {
-            thisWeekByCat[cat] = (thisWeekByCat[cat] || 0) + amount;
-            thisWeekTotal += amount;
-          } else if (date >= startOfLastWeek && date < startOfThisWeek) {
-            lastWeekByCat[cat] = (lastWeekByCat[cat] || 0) + amount;
-            lastWeekTotal += amount;
-          }
-        });
+        const categoryTotals: Record<string, number> = {};
 
-        const newInsights: string[] = [];
-
-        let topCategory: string | null = null;
-        let topAmount = 0;
         for (const cat in thisWeekByCat) {
-          if (thisWeekByCat[cat] > topAmount) {
-            topAmount = thisWeekByCat[cat];
-            topCategory = cat;
-          }
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + thisWeekByCat[cat];
         }
-        if (topCategory) {
-          newInsights.push(
-            `🏅 Highest spending this week: ${topCategory
-              .replace(/_/g, " ")
-              .toLowerCase()
-              .replace(/\b\w/g, (c) => c.toUpperCase())} (RM${topAmount.toFixed(
-              2,
-            )}).`,
-          );
+        for (const cat in lastWeekByCat) {
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + lastWeekByCat[cat];
         }
 
-        if (lastWeekTotal > 0) {
-          const diff = thisWeekTotal - lastWeekTotal;
-          const pct = Math.round((diff / lastWeekTotal) * 100);
+        await awardCategoryBadges(categoryTotals);
+        const date = new Date(row.receipt_date);
+        const amount = Number(row.total_amount) || 0;
+        const cat = (row.category || "OTHER") as string;
 
-          if (pct > 0) {
-            newInsights.push(
-              `📈 Your total spending is up ${pct}% compared to last week.`,
-            );
-          } else if (pct < 0) {
-            newInsights.push(
-              `📉 Your total spending is down ${Math.abs(
-                pct,
-              )}% compared to last week. Nice job!`,
-            );
-          } else {
-            newInsights.push(
-              `⚖️ Your spending is about the same as last week.`,
-            );
-          }
-        } else if (thisWeekTotal > 0) {
-          newInsights.push(
-            `🆕 You started tracking this week with RM${thisWeekTotal.toFixed(
-              2,
-            )} recorded.`,
-          );
+        if (date >= startOfThisWeek) {
+          thisWeekByCat[cat] = (thisWeekByCat[cat] || 0) + amount;
+          thisWeekTotal += amount;
+        } else if (date >= startOfLastWeek && date < startOfThisWeek) {
+          lastWeekByCat[cat] = (lastWeekByCat[cat] || 0) + amount;
+          lastWeekTotal += amount;
         }
+      });
 
-        setInsights(newInsights);
+      const newInsights: string[] = [];
+      let topCategory: string | null = null;
+      let topAmount = 0;
+      for (const cat in thisWeekByCat) {
+        if (thisWeekByCat[cat] > topAmount) {
+          topAmount = thisWeekByCat[cat];
+          topCategory = cat;
+        }
       }
+
+      if (topCategory) {
+        newInsights.push(
+          `🏅 Highest spending this week: ${topCategory
+            .replace(/_/g, " ")
+            .toLowerCase()
+            .replace(/\b\w/g, (c) =>
+              c.toUpperCase(),
+            )} (RM${topAmount.toFixed(2)}).`,
+        );
+      }
+
+      if (lastWeekTotal > 0) {
+        const diff = thisWeekTotal - lastWeekTotal;
+        const pct = Math.round((diff / lastWeekTotal) * 100);
+
+        if (pct > 0) {
+          newInsights.push(
+            `📈 Your total spending is up ${pct}% compared to last week.`,
+          );
+        } else if (pct < 0) {
+          newInsights.push(
+            `📉 Your total spending is down ${Math.abs(pct)}% compared to last week. Nice job!`,
+          );
+        } else {
+          newInsights.push(`⚖️ Your spending is about the same as last week.`);
+        }
+      } else if (thisWeekTotal > 0) {
+        newInsights.push(
+          `🆕 You started tracking this week with RM${thisWeekTotal.toFixed(2)} recorded.`,
+        );
+      }
+
+      setInsights(newInsights);
     }
   }, []);
 

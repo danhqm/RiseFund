@@ -4,21 +4,20 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const OCR_API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/ocr`;
 
-// 1. ADDED "Summary" AS THE FIRST TAB
 const TABS = [
   "Summary",
   "Personal",
@@ -29,7 +28,6 @@ const TABS = [
   "Others",
 ];
 
-// 2. ADDED THE OFFICIAL LHDN LIMITS FOR CALCULATIONS
 const LHDN_LIMITS: Record<string, number> = {
   Lifestyle: 2500,
   "Medical & Care": 10000,
@@ -148,6 +146,7 @@ const LHDN_CONTENT: Record<string, any[]> = {
 
 export default function LHDNClaimScreen() {
   const router = useRouter();
+  const [fullImage, setFullImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(TABS[0]); // Starts on "Summary"
   const [loading, setLoading] = useState(false);
   const [scanningId, setScanningId] = useState<string | null>(null);
@@ -159,14 +158,12 @@ export default function LHDNClaimScreen() {
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [currentInfoText, setCurrentInfoText] = useState("");
 
-  // 3. DASHBOARD STATES
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [totalRelief, setTotalRelief] = useState(0);
   const [categoryTotals, setCategoryTotals] = useState<
     Record<string, { spent: number; eligible: number; limit: number }>
   >({});
 
-  // Trigger calculation when the Summary tab is opened
   useEffect(() => {
     if (activeTab === "Summary") {
       calculateTaxRelief();
@@ -291,7 +288,6 @@ export default function LHDNClaimScreen() {
           );
         } else {
           Alert.alert("Success!", "Receipt saved to your LHDN claims.");
-          // Update summary if they instantly switch tabs
           if (activeTab === "Summary") calculateTaxRelief();
         }
       }
@@ -327,7 +323,6 @@ export default function LHDNClaimScreen() {
     }
   };
 
-  // 4. RENDER HELPER FOR THE SUMMARY TAB
   const renderSummaryDashboard = () => {
     if (dashboardLoading)
       return (
@@ -413,7 +408,7 @@ export default function LHDNClaimScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -465,7 +460,6 @@ export default function LHDNClaimScreen() {
           style={styles.contentScroll}
           showsVerticalScrollIndicator={false}
         >
-          {/* 5. CONDITIONAL RENDERING BASED ON TAB */}
           {activeTab === "Summary" ? (
             renderSummaryDashboard()
           ) : (
@@ -525,7 +519,6 @@ export default function LHDNClaimScreen() {
         </ScrollView>
       </View>
 
-      {/* RECEIPTS VAULT MODAL */}
       <Modal
         visible={viewingModal}
         animationType="slide"
@@ -538,6 +531,7 @@ export default function LHDNClaimScreen() {
               <Text style={styles.closeText}>Close</Text>
             </TouchableOpacity>
           </View>
+
           {fetchingReceipts ? (
             <ActivityIndicator
               size="large"
@@ -551,7 +545,14 @@ export default function LHDNClaimScreen() {
           ) : (
             <ScrollView style={styles.modalScroll}>
               {savedReceipts.map((r) => (
-                <View key={r.id} style={styles.receiptCard}>
+                <TouchableOpacity
+                  key={r.id}
+                  style={styles.receiptCard}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (r.image_url) setFullImage(r.image_url);
+                  }}
+                >
                   {r.image_url && (
                     <Image
                       source={{ uri: r.image_url }}
@@ -575,29 +576,26 @@ export default function LHDNClaimScreen() {
                       </Text>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           )}
-        </View>
-      </Modal>
 
-      {/* INFO MODAL */}
-      <Modal visible={infoModalVisible} transparent={true} animationType="fade">
-        <View style={styles.infoModalOverlay}>
-          <View style={styles.infoModalCard}>
-            <View style={styles.infoModalHeader}>
-              <Ionicons name="information-circle" size={24} color="#4caf50" />
-              <Text style={styles.infoModalTitle}>Syarat Kelayakan</Text>
+          {fullImage && (
+            <View style={styles.fullImageOverlay}>
+              <TouchableOpacity
+                style={styles.fullImageCloseButton}
+                onPress={() => setFullImage(null)}
+              >
+                <Ionicons name="close-circle" size={40} color="#fff" />
+              </TouchableOpacity>
+              <Image
+                source={{ uri: fullImage }}
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
             </View>
-            <Text style={styles.infoModalBody}>{currentInfoText}</Text>
-            <TouchableOpacity
-              style={styles.infoModalButton}
-              onPress={() => setInfoModalVisible(false)}
-            >
-              <Text style={styles.infoModalButtonText}>Faham (Understood)</Text>
-            </TouchableOpacity>
-          </View>
+          )}
         </View>
       </Modal>
     </SafeAreaView>
@@ -605,7 +603,10 @@ export default function LHDNClaimScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#00D09C" },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#00D09C",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -626,9 +627,19 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: "hidden",
   },
-  titleContainer: { alignItems: "center" },
-  headerTitle: { fontSize: 18, fontWeight: "bold", color: "#000" },
-  headerSubtitle: { fontSize: 18, fontWeight: "bold", color: "#000" },
+  titleContainer: {
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+  },
+  headerSubtitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+  },
   whiteContainer: {
     flex: 1,
     backgroundColor: "#fff",
@@ -644,19 +655,41 @@ const styles = StyleSheet.create({
     padding: 5,
     marginBottom: 20,
   },
-  tabScrollContent: { alignItems: "center" },
-  tabButton: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 25 },
-  activeTabButton: { backgroundColor: "#00D09C" },
-  tabText: { fontSize: 14, color: "#093030", fontWeight: "500" },
-  activeTabText: { color: "#fff", fontWeight: "600" },
-  contentScroll: { flex: 1, paddingHorizontal: 25 },
+  tabScrollContent: {
+    alignItems: "center",
+  },
+  tabButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+  },
+  activeTabButton: {
+    backgroundColor: "#00D09C",
+  },
+  tabText: {
+    fontSize: 14,
+    color: "#093030",
+    fontWeight: "500",
+  },
+  activeTabText: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  contentScroll: {
+    flex: 1,
+    paddingHorizontal: 25,
+  },
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", color: "#093030" },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#093030",
+  },
 
   card: {
     marginBottom: 20,
@@ -729,7 +762,11 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
 
-  modalContainer: { flex: 1, backgroundColor: "#F5F7F8", padding: 20 },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#F5F7F8",
+    padding: 20,
+  },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -737,8 +774,16 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: 10,
   },
-  modalTitle: { fontSize: 20, fontWeight: "bold", color: "#093030" },
-  closeText: { fontSize: 16, color: "#00D09C", fontWeight: "600" },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#093030",
+  },
+  closeText: {
+    fontSize: 16,
+    color: "#00D09C",
+    fontWeight: "600",
+  },
   emptyText: {
     textAlign: "center",
     marginTop: 40,
@@ -757,8 +802,16 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 2,
   },
-  receiptImage: { width: 70, height: 70, borderRadius: 8, marginRight: 15 },
-  receiptDetails: { flex: 1, justifyContent: "center" },
+  receiptImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    marginRight: 15,
+  },
+  receiptDetails: {
+    flex: 1,
+    justifyContent: "center",
+  },
   receiptMerchant: {
     fontSize: 16,
     fontWeight: "bold",
@@ -819,10 +872,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
-  infoModalButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  infoModalButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
 
   // DASHBOARD STYLES
-  dashboardContainer: { paddingBottom: 20 },
+  dashboardContainer: {
+    paddingBottom: 20,
+  },
   summaryCard: {
     backgroundColor: "#00D09C",
     padding: 25,
@@ -872,10 +931,23 @@ const styles = StyleSheet.create({
     color: "#333",
     flex: 1,
   },
-  categoryProgressValues: { flexDirection: "row", alignItems: "baseline" },
-  eligibleText: { fontSize: 15, fontWeight: "bold", color: "#00D09C" },
-  maxedText: { color: "#FF9800" },
-  limitText: { fontSize: 11, color: "#888", fontWeight: "500" },
+  categoryProgressValues: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  eligibleText: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#00D09C",
+  },
+  maxedText: {
+    color: "#FF9800",
+  },
+  limitText: {
+    fontSize: 11,
+    color: "#888",
+    fontWeight: "500",
+  },
   progressBarBackground: {
     height: 8,
     backgroundColor: "#E8F5E9",
@@ -887,11 +959,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#00D09C",
     borderRadius: 4,
   },
-  progressBarMaxed: { backgroundColor: "#FF9800" },
+  progressBarMaxed: {
+    backgroundColor: "#FF9800",
+  },
   overSpentText: {
     fontSize: 11,
     color: "#666",
     marginTop: 8,
     fontStyle: "italic",
   },
+  fullImageOverlay: {
+    ...StyleSheet.absoluteFillObject, // Stretches to fill the modal
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100, // Ensures it sits on top of the list
+  },
+  fullImageCloseButton: {
+    position: "absolute",
+    top: 50,
+    right: 20,
+    zIndex: 101,
+    padding: 10,
+  },
+  fullImage: { width: "100%", height: "80%" },
 });

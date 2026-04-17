@@ -12,6 +12,10 @@
       "supportsTablet": true,
       "backgroundColor": "#0E3E3E"
     },
+    "notification": {
+      "icon": "./assets/images/RiseFund-Light.png",
+      "color": "#00D09E"
+    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

@@ -15,7 +15,7 @@ const { width, height } = Dimensions.get("window");
 const onboardingData = [
   {
     id: "1",
-    title: "Welcome To RiseFund",
+    title: "Welcome To SafeSpend",
     image: require("../assets/images/coinhand.png"),
     circleColor: "#DFF7E2",
   },
@@ -38,7 +38,12 @@ export default function Onboarding() {
       keyExtractor={(item) => item.id}
       renderItem={({ item, index }) => (
         <View style={styles.page}>
-          <SafeAreaView style={styles.safeArea}>
+          <View style={styles.topGreenBackground} />
+
+          <SafeAreaView
+            style={styles.safeArea}
+            edges={["top", "left", "right"]}
+          >
             <Text style={styles.title}>{item.title}</Text>
           </SafeAreaView>
 
@@ -87,10 +92,16 @@ const styles = StyleSheet.create({
   page: {
     width,
     height,
-    backgroundColor: "#00D09E",
+    backgroundColor: "#F1FFF3",
     alignItems: "center",
   },
-
+  topGreenBackground: {
+    position: "absolute",
+    top: 0,
+    width: "100%",
+    height: 400, // Extends just far enough down to hide behind the curved card
+    backgroundColor: "#00D09E",
+  },
   safeArea: {
     alignItems: "center",
     paddingVertical: 40,
