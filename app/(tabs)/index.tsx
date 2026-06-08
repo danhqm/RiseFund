@@ -1,9 +1,5 @@
-import {
-  awardBudgetBehaviorBadges,
-  awardCategoryBadges,
-  awardScannerBadges,
-} from "@/utils/badges";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -278,8 +274,6 @@ export default function HomeScreen() {
 
       setTotalExpense(sum);
       setMonthReceiptCount(monthReceipts.length);
-      const effectiveIncome = incomeNum > 0 ? incomeNum : 1;
-      await awardBudgetBehaviorBadges(sum, effectiveIncome);
     }
 
     const { data: allReceipts, error: allReceiptsError } = await supabase
@@ -290,8 +284,6 @@ export default function HomeScreen() {
     if (allReceiptsError) {
       console.log("Home: all receipts error (for badges)", allReceiptsError);
     } else {
-      const totalReceipts = allReceipts?.length ?? 0;
-      await awardScannerBadges(totalReceipts);
     }
 
     // 2. BULLETPROOF LAST RECEIPT
@@ -424,7 +416,6 @@ export default function HomeScreen() {
       })),
     };
 
-    // AI will now only get the clean, non-LHDN data
     await fetchAIInsights(payload);
 
     const { data: streakRows, error: streakError } = await supabase
@@ -441,7 +432,6 @@ export default function HomeScreen() {
 
     const fourteenDaysAgoStr = getDateNDaysAgo(13);
 
-    // 4. BULLETPROOF INSIGHT RECEIPTS
     const { data: insightReceipts, error: insightError } = await supabase
       .from("receipts")
       .select("total_amount, category, receipt_date, lhdn_category")
@@ -480,7 +470,6 @@ export default function HomeScreen() {
           categoryTotals[cat] = (categoryTotals[cat] || 0) + lastWeekByCat[cat];
         }
 
-        await awardCategoryBadges(categoryTotals);
         const date = new Date(row.receipt_date);
         const amount = Number(row.total_amount) || 0;
         const cat = (row.category || "OTHER") as string;
@@ -540,9 +529,11 @@ export default function HomeScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useFocusEffect(
+    React.useCallback(() => {
+      loadData();
+    }, [loadData]),
+  );
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
@@ -565,27 +556,6 @@ export default function HomeScreen() {
     suggestion =
       "Nice! Your spending is under 50% of your income. Keep saving consistently.";
   }
-
-  const badges = [
-    {
-      id: "first-receipt",
-      title: "Receipt Rookie",
-      description: "Scan your first receipt.",
-      unlocked: monthReceiptCount >= 1,
-    },
-    {
-      id: "weekly-streak",
-      title: "Streak Starter",
-      description: "Keep a streak of 3 days.",
-      unlocked: streakCount >= 3,
-    },
-    {
-      id: "budget-guardian",
-      title: "Budget Guardian",
-      description: "Stay under 50% of your income this month.",
-      unlocked: progressPercent > 0 && progressPercent <= 50,
-    },
-  ];
 
   return (
     <SafeAreaView style={styles.container}>

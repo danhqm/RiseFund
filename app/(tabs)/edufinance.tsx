@@ -53,42 +53,15 @@ function computeStreak(dates: string[]): number {
   return streak;
 }
 
-const BADGE_CONFIG: Record<string, { emoji: string; labelOverride?: string }> =
-  {
-    streak_1: { emoji: "✨" },
-    streak_3: { emoji: "🔥" },
-    streak_7: { emoji: "🏅" },
-    streak_30: { emoji: "🏆" },
-
-    savings_novice: { emoji: "💰" },
-    savings_pro: { emoji: "🏦" },
-    savings_master: { emoji: "🌈" },
-
-    budget_novice: { emoji: "📊" },
-    budget_pro: { emoji: "📈" },
-    budget_master: { emoji: "💼" },
-
-    debt_novice: { emoji: "💳" },
-    debt_pro: { emoji: "📉" },
-    debt_master: { emoji: "🧾" },
-
-    scanner_first: { emoji: "🧾" },
-    scanner_10: { emoji: "🧮" },
-    scanner_50: { emoji: "📚" },
-
-    foodie: { emoji: "🍔" },
-    groceries_hero: { emoji: "🛒" },
-
-    under_budget: { emoji: "📉" },
-    super_saver: { emoji: "💎" },
-    spender: { emoji: "💸" },
-
-    fin_fan: { emoji: "🤖" },
-    fin_superfan: { emoji: "🌟" },
-  };
-
-const TOTAL_BADGES = Object.keys(BADGE_CONFIG).length;
-const PREVIEW_BADGE_COUNT = 2;
+type LearningPath = {
+  id: string; // Assuming Supabase UUIDs. Change to 'number' if you used bigints.
+  title: string;
+  description: string;
+  cover_image_url: string | null;
+  totalModules: number;
+  completedModules: number;
+  isFullyComplete: boolean;
+};
 
 type Goal = {
   id: string;
@@ -117,26 +90,20 @@ function toISODateOnly(d: Date) {
 }
 
 export default function EduFinanceScreen() {
-  const [savingsCompleted, setSavingsCompleted] = useState(0);
-  const [budgetingCompleted, setBudgetingCompleted] = useState(0);
-  const [debtCompleted, setDebtCompleted] = useState(0);
+  const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
   const [streakCount, setStreakCount] = useState(0);
   const router = useRouter();
-  const [isBadgeModalVisible, setBadgeModalVisible] = useState(false);
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [newGoalNotes, setNewGoalNotes] = useState("");
   const [goals, setGoals] = useState<Goal[]>([]);
 
-  const [badges, setBadges] = useState<
-    {
-      badge_code: string;
-      badge_name: string;
-      badge_description: string | null;
-    }[]
-  >([]);
+  const PATH_IMAGES: Record<string, any> = {
+    "The 50/30/20 Rule": require("../../assets/images/credit card.png"),
+    "The Emergency Fund": require("../../assets/images/safe box.png"),
+    "Tracking Every Ringgit": require("../../assets/images/wallet with cash.png"),
+  };
 
-  const previewBadges = badges.slice(0, PREVIEW_BADGE_COUNT);
   const [selectedWeekStart, setSelectedWeekStart] = useState<string>(
     toISODateOnly(getMonday(new Date())),
   );
@@ -229,286 +196,6 @@ export default function EduFinanceScreen() {
     }
   }, []);
 
-  const loadBadges = useCallback(async () => {
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    const user = authData?.user;
-
-    if (authError || !user) {
-      console.log("No user for badges:", authError);
-      setBadges([]);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from("user_badges")
-      .select("badge_code, badge_name, badge_description")
-      .eq("user_id", user.id)
-      .order("earned_at", { ascending: true });
-
-    if (error) {
-      console.log("Error loading badges:", error);
-      setBadges([]);
-      return;
-    }
-
-    setBadges(data || []);
-  }, []);
-
-  const checkAndAwardStreakBadges = useCallback(
-    async (streak: number) => {
-      const { data: authData, error: authError } =
-        await supabase.auth.getUser();
-      const user = authData?.user;
-
-      if (authError || !user) {
-        console.log("No user for badge award:", authError);
-        return;
-      }
-
-      const { data: existing, error: existingError } = await supabase
-        .from("user_badges")
-        .select("badge_code")
-        .eq("user_id", user.id);
-
-      if (existingError) {
-        console.log("Error checking existing badges:", existingError);
-        return;
-      }
-
-      const owned = new Set((existing || []).map((b) => b.badge_code));
-
-      const toInsert: {
-        user_id: string;
-        badge_code: string;
-        badge_name: string;
-        badge_description?: string;
-      }[] = [];
-
-      if (streak >= 1 && !owned.has("streak_1")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "streak_1",
-          badge_name: "First Step",
-          badge_description: "Completed your first daily EduFinance task.",
-        });
-      }
-
-      if (streak >= 3 && !owned.has("streak_3")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "streak_3",
-          badge_name: "Beginner Saver",
-          badge_description: "Maintained a 3-day learning streak.",
-        });
-      }
-
-      if (streak >= 7 && !owned.has("streak_7")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "streak_7",
-          badge_name: "Money Habit",
-          badge_description: "Maintained a 7-day learning streak.",
-        });
-      }
-
-      if (streak >= 30 && !owned.has("streak_30")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "streak_30",
-          badge_name: "Financial Master",
-          badge_description: "Maintained a 30-day learning streak.",
-        });
-      }
-
-      if (toInsert.length === 0) return;
-
-      const { error: insertError } = await supabase
-        .from("user_badges")
-        .insert(toInsert);
-
-      if (insertError) {
-        console.log("Error inserting streak badges:", insertError);
-        return;
-      }
-
-      console.log(
-        "🏆 New streak badges earned:",
-        toInsert.map((b) => b.badge_code),
-      );
-
-      loadBadges();
-    },
-    [loadBadges],
-  );
-
-  const checkAndAwardTaskBadges = useCallback(
-    async (savingsCount: number, budgetingCount: number, debtCount: number) => {
-      const { data: authData, error: authError } =
-        await supabase.auth.getUser();
-      const user = authData?.user;
-
-      if (authError || !user) {
-        console.log("No user for task badges:", authError);
-        return;
-      }
-
-      const { data: existing, error: existingError } = await supabase
-        .from("user_badges")
-        .select("badge_code")
-        .eq("user_id", user.id);
-
-      if (existingError) {
-        console.log("Error checking existing task badges:", existingError);
-        return;
-      }
-
-      const owned = new Set((existing || []).map((b) => b.badge_code));
-      const toInsert: {
-        user_id: string;
-        badge_code: string;
-        badge_name: string;
-        badge_description?: string;
-      }[] = [];
-
-      if (savingsCount >= 3 && !owned.has("savings_novice")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "savings_novice",
-          badge_name: "Savings Starter",
-          badge_description: "Completed 3 savings exercises.",
-        });
-      }
-      if (savingsCount >= 6 && !owned.has("savings_pro")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "savings_pro",
-          badge_name: "Savings Pro",
-          badge_description: "Completed 6 savings exercises.",
-        });
-      }
-      if (savingsCount >= 9 && !owned.has("savings_master")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "savings_master",
-          badge_name: "Savings Master",
-          badge_description: "Completed 9 savings exercises.",
-        });
-      }
-
-      if (budgetingCount >= 3 && !owned.has("budget_novice")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "budget_novice",
-          badge_name: "Budget Rookie",
-          badge_description: "Completed 3 budgeting exercises.",
-        });
-      }
-      if (budgetingCount >= 6 && !owned.has("budget_pro")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "budget_pro",
-          badge_name: "Budget Planner",
-          badge_description: "Completed 6 budgeting exercises.",
-        });
-      }
-      if (budgetingCount >= 9 && !owned.has("budget_master")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "budget_master",
-          badge_name: "Budget Strategist",
-          badge_description: "Completed 9 budgeting exercises.",
-        });
-      }
-
-      if (debtCount >= 3 && !owned.has("debt_novice")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "debt_novice",
-          badge_name: "Debt Aware",
-          badge_description: "Completed 3 debt management exercises.",
-        });
-      }
-      if (debtCount >= 6 && !owned.has("debt_pro")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "debt_pro",
-          badge_name: "Debt Fighter",
-          badge_description: "Completed 6 debt management exercises.",
-        });
-      }
-      if (debtCount >= 9 && !owned.has("debt_master")) {
-        toInsert.push({
-          user_id: user.id,
-          badge_code: "debt_master",
-          badge_name: "Debt Free Mindset",
-          badge_description: "Completed 9 debt management exercises.",
-        });
-      }
-
-      if (toInsert.length === 0) return;
-
-      const { error: insertError } = await supabase
-        .from("user_badges")
-        .insert(toInsert);
-
-      if (insertError) {
-        console.log("Error inserting task badges:", insertError);
-        return;
-      }
-
-      console.log(
-        "🏆 New task badges earned:",
-        toInsert.map((b) => b.badge_code),
-      );
-
-      loadBadges();
-    },
-    [loadBadges],
-  );
-
-  const loadCompletionCounts = useCallback(async () => {
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    const user = authData?.user;
-
-    if (authError || !user) {
-      console.log("No user for completion counts:", authError);
-      setSavingsCompleted(0);
-      setBudgetingCompleted(0);
-      setDebtCompleted(0);
-      return;
-    }
-
-    const todayKey = getTodayKeyLocal();
-
-    const fetchCount = async (category: string) => {
-      const { data, error } = await supabase
-        .from("edufinance_task_progress")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("task_date", todayKey)
-        .eq("category", category);
-
-      if (error) {
-        console.log(`Error loading ${category} completion:`, error);
-        return 0;
-      }
-
-      return data?.length ?? 0;
-    };
-
-    const [savingsCount, budgetingCount, debtCount] = await Promise.all([
-      fetchCount("savings"),
-      fetchCount("budgeting"),
-      fetchCount("debt"),
-    ]);
-
-    setSavingsCompleted(savingsCount);
-    setBudgetingCompleted(budgetingCount);
-    setDebtCompleted(debtCount);
-
-    await checkAndAwardTaskBadges(savingsCount, budgetingCount, debtCount);
-  }, [checkAndAwardTaskBadges]);
-
   const loadStreak = useCallback(async () => {
     const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
@@ -534,30 +221,68 @@ export default function EduFinanceScreen() {
     const dates = (data || []).map((row) => row.date as string);
     const streak = computeStreak(dates);
     setStreakCount(streak);
+  }, []);
 
-    checkAndAwardStreakBadges(streak);
-  }, [checkAndAwardStreakBadges, checkAndAwardTaskBadges]);
+  const loadLearningPaths = useCallback(async () => {
+    const { data: authData } = await supabase.auth.getUser();
+    const user = authData?.user;
+    if (!user) return;
+
+    const today = new Date().toISOString();
+
+    const { data: pathsData, error: pathsError } = await supabase
+      .from("learning_paths")
+      .select(
+        `
+        id, 
+        title, 
+        description, 
+        cover_image_url,
+        learning_modules ( id )
+      `,
+      )
+      .eq("is_published", true)
+      .lte("publish_date", today)
+      .order("publish_date", { ascending: false });
+
+    if (pathsError) {
+      console.log("Error fetching paths:", pathsError);
+      return;
+    }
+
+    const { data: progressData } = await supabase
+      .from("user_path_progress")
+      .select("module_id")
+      .eq("user_id", user.id);
+
+    const completedModuleIds = new Set(
+      (progressData || []).map((p) => p.module_id),
+    );
+
+    const enrichedPaths = (pathsData || []).map((path) => {
+      const totalModules = path.learning_modules.length;
+      const completedModules = path.learning_modules.filter((m) =>
+        completedModuleIds.has(m.id),
+      ).length;
+
+      return {
+        ...path,
+        totalModules,
+        completedModules,
+        isFullyComplete: totalModules > 0 && totalModules === completedModules,
+      };
+    });
+
+    setLearningPaths(enrichedPaths);
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      loadCompletionCounts();
+      loadGoals();
       loadStreak();
-      loadBadges();
-    }, [
-      loadCompletionCounts,
-      loadStreak,
-      loadBadges,
-      checkAndAwardTaskBadges,
-      checkAndAwardStreakBadges,
-    ]),
+      loadLearningPaths(); // We will add this function next
+    }, [loadGoals, loadStreak, loadLearningPaths]),
   );
-
-  const unlockedBadgeCount = badges.filter(
-    (b) => !!BADGE_CONFIG[b.badge_code],
-  ).length;
-
-  const badgeProgress =
-    TOTAL_BADGES > 0 ? (unlockedBadgeCount / TOTAL_BADGES) * 100 : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -587,51 +312,6 @@ export default function EduFinanceScreen() {
               imageStyle={{ width: 40, height: 40 }}
               showCircle={false}
             />
-
-            {badges.length > 0 && (
-              <>
-                <View style={styles.badgeHeaderRow}>
-                  <Text style={styles.sectionTitle}>Badges Earned</Text>
-                  <TouchableOpacity onPress={() => setBadgeModalVisible(true)}>
-                    <Text style={styles.viewAllText}>View all</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.badgeProgressText}>
-                  {unlockedBadgeCount} / {TOTAL_BADGES} badges unlocked
-                </Text>
-                <View style={styles.badgeProgressBar}>
-                  <View
-                    style={[
-                      styles.badgeProgressFill,
-                      { width: `${badgeProgress}%` },
-                    ]}
-                  />
-                </View>
-
-                <View style={styles.badgeRow}>
-                  {previewBadges.map((badge) => {
-                    const meta = BADGE_CONFIG[badge.badge_code] || {
-                      emoji: "🏆",
-                    };
-                    return (
-                      <View key={badge.badge_code} style={styles.badgePill}>
-                        <Text style={styles.badgeEmoji}>{meta.emoji}</Text>
-                        <View style={{ marginLeft: 6 }}>
-                          <Text style={styles.badgeName}>
-                            {badge.badge_name}
-                          </Text>
-                          {badge.badge_description ? (
-                            <Text style={styles.badgeDescription}>
-                              {badge.badge_description}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </>
-            )}
 
             <View style={{ marginTop: 18 }}>
               <View style={styles.goalHeaderRow}>
@@ -751,109 +431,38 @@ export default function EduFinanceScreen() {
               </View>
             </Modal>
 
-            <Text style={styles.subtitle}>Lets Do Some Exercises</Text>
+            <Text style={styles.subtitle}>Learning Paths</Text>
 
-            <Text style={styles.sectionTitle}>Savings</Text>
-            <TaskCard
-              title="Savings Task"
-              description={`Completed ${savingsCompleted}/3`}
-              image={require("../../assets/images/safe box.png")}
-              onPress={() =>
-                router.push({
-                  pathname: "/edufinance-quiz",
-                  params: { category: "savings" },
-                })
-              }
-            />
-
-            <Text style={styles.sectionTitle}>Budgeting</Text>
-            <TaskCard
-              title="Budgeting Task"
-              description={`Completed ${budgetingCompleted}/3`}
-              image={require("../../assets/images/wallet with cash.png")}
-              onPress={() =>
-                router.push({
-                  pathname: "/edufinance-quiz",
-                  params: { category: "budgeting" },
-                })
-              }
-            />
-
-            <Text style={styles.sectionTitle}>Debt Management</Text>
-            <TaskCard
-              title="Debt Task"
-              description={`Completed ${debtCompleted}/3`}
-              image={require("../../assets/images/credit card.png")}
-              onPress={() =>
-                router.push({
-                  pathname: "/edufinance-quiz",
-                  params: { category: "debt" },
-                })
-              }
-            />
+            {learningPaths.length === 0 ? (
+              <Text style={styles.goalEmptyText}>
+                Loading financial modules...
+              </Text>
+            ) : (
+              learningPaths.map((path) => (
+                <TaskCard
+                  key={path.id}
+                  title={path.title}
+                  description={
+                    path.isFullyComplete
+                      ? "🎉 Path Completed!"
+                      : `${path.completedModules} of ${path.totalModules} modules finished`
+                  }
+                  image={
+                    PATH_IMAGES[path.title] ||
+                    require("../../assets/images/safe box.png")
+                  }
+                  onPress={() =>
+                    router.push({
+                      pathname: "/learning-path-details",
+                      params: { pathId: path.id, title: path.title },
+                    })
+                  }
+                />
+              ))
+            )}
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
-      <Modal
-        visible={isBadgeModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setBadgeModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Your Badges</Text>
-              <TouchableOpacity
-                onPress={() => setBadgeModalVisible(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={20} color="#052224" />
-              </TouchableOpacity>
-            </View>
-
-            {badges.length === 0 ? (
-              <View style={styles.modalEmptyState}>
-                <Text style={styles.modalEmptyEmoji}>🏅</Text>
-                <Text style={styles.modalEmptyTitle}>No badges yet</Text>
-                <Text style={styles.modalEmptyText}>
-                  Complete EduFinance exercises and keep your streak going to
-                  earn badges.
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.modalScrollContent}
-              >
-                <View style={styles.modalBadgeGrid}>
-                  {badges.map((badge) => {
-                    const meta = BADGE_CONFIG[badge.badge_code] || {
-                      emoji: "🏆",
-                    };
-                    return (
-                      <View
-                        key={badge.badge_code}
-                        style={styles.modalBadgeCard}
-                      >
-                        <Text style={styles.modalBadgeEmoji}>{meta.emoji}</Text>
-                        <Text style={styles.modalBadgeName}>
-                          {badge.badge_name}
-                        </Text>
-                        {badge.badge_description ? (
-                          <Text style={styles.modalBadgeDescription}>
-                            {badge.badge_description}
-                          </Text>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </View>
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
