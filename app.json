@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "RiseFund",
-    "slug": "RiseFund",
+    "name": "SafeSpend",
+    "slug": "SafeSpend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/RiseFund-Light.png",
@@ -49,6 +49,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fbeb3fb7-9466-4e1f-8c11-fcb60ce6ce9e"
+      }
     }
   }
 }

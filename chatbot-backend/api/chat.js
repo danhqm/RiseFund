@@ -18,9 +18,11 @@ export default async function handler(req, res) {
     if (chatHistory.length > MAX_HISTORY * 2)
       chatHistory = chatHistory.slice(-MAX_HISTORY * 2);
 
-    const response = await openai.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
+    // FIX 1: Use chat.completions.create
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // FIX 2: Use a standard model name like gpt-4o-mini or gpt-3.5-turbo
+      messages: [
+        // FIX 3: Change 'input' to 'messages'
         {
           role: "system",
           content:
@@ -30,10 +32,13 @@ export default async function handler(req, res) {
       ],
     });
 
-    const first = response.output?.[0]?.content?.[0];
+    // FIX 4: Correctly parse the standard OpenAI response object
     const botReply =
-      (first && "text" in first && first.text) ||
+      response.choices[0]?.message?.content ||
       "Sorry — I couldn’t generate a reply.";
+
+    // Add bot reply to history so it remembers the conversation
+    chatHistory.push({ role: "assistant", content: botReply });
 
     res.status(200).json({ success: true, text: botReply });
   } catch (err) {

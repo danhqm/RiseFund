@@ -1,3 +1,4 @@
+// api/fin-insights.js
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 
@@ -128,39 +129,33 @@ export default async function handler(req, res) {
       goals: goalsForAI,
     };
 
-    const response = await openai.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Faster, cheaper, and actually exists!
+      messages: [
         {
           role: "user",
-          content: [
-            {
-              type: "input_text",
-              text:
-                "You are Fin, a friendly AI finance coach in a Malaysian student finance app.\n" +
-                "Use the user's weekly spending, monthly income, and weekly goals to give PERSONALIZED recommendations.\n\n" +
-                "Rules:\n" +
-                "- Write 2 bullet-style insights (short sentences, not long paragraphs).\n" +
-                "- Be specific with RM amounts from the data.\n" +
-                "- If the user reached a savings goal, celebrate. You can be playful, but DO NOT encourage reckless spending.\n" +
-                "  (Instead say something like: 'You hit your goal — nice! Keep a small buffer, and you can treat yourself within RMX.')\n" +
-                "- If not reached, give 1–2 actionable suggestions tied to their top spending category.\n" +
-                "- If monthly income is missing/0, gently ask them to set it.\n" +
-                "- Return ONLY valid JSON: an array of strings. No markdown, no extra fields.\n\n" +
-                "User data JSON:\n" +
-                JSON.stringify(context, null, 2) +
-                "\n\nReturn JSON array only like:\n" +
-                '["Insight 1", "Insight 2", "Insight 3"]',
-            },
-          ],
+          // ✅ FIX 3: For text-only requests, 'content' can just be a standard string
+          content:
+            "You are Fin, a friendly AI finance coach in a Malaysian student finance app.\n" +
+            "Use the user's weekly spending, monthly income, and weekly goals to give PERSONALIZED recommendations.\n\n" +
+            "Rules:\n" +
+            "- Write 2 bullet-style insights (short sentences, not long paragraphs).\n" +
+            "- Be specific with RM amounts from the data.\n" +
+            "- If the user reached a savings goal, celebrate. You can be playful, but DO NOT encourage reckless spending.\n" +
+            "  (Instead say something like: 'You hit your goal — nice! Keep a small buffer, and you can treat yourself within RMX.')\n" +
+            "- If not reached, give 1–2 actionable suggestions tied to their top spending category.\n" +
+            "- If monthly income is missing/0, gently ask them to set it.\n" +
+            "- Return ONLY valid JSON: an array of strings. No markdown, no extra fields.\n\n" +
+            "User data JSON:\n" +
+            JSON.stringify(context, null, 2) +
+            "\n\nReturn JSON array only like:\n" +
+            '["Insight 1", "Insight 2", "Insight 3"]',
         },
       ],
     });
 
-    const first = response.output?.[0]?.content?.[0];
-    const outputText =
-      (first && "text" in first && first.text) ||
-      (typeof first === "string" ? first : "");
+    // ✅ FIX 4: Correctly parse the standard OpenAI response object
+    const outputText = response.choices[0]?.message?.content || "";
 
     if (!outputText) {
       throw new Error("No text output from OpenAI for insights");

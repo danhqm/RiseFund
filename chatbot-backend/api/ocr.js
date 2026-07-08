@@ -1,3 +1,4 @@
+//api/ocr.js
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 
@@ -148,7 +149,6 @@ export default async function handler(req, res) {
     try {
       console.log("🤖 Sending image to OpenAI for analysis...");
 
-      // 🌟 NEW 2: Tell OpenAI to check if this is an LHDN claim
       let promptText =
         "Extract the receipt data from this image. Return ONLY valid JSON. No code fences, no commentary. ";
 
@@ -177,19 +177,23 @@ export default async function handler(req, res) {
         promptText += `Return the exact category string. Format: { "merchant_name": "string", "total_amount": number, "receipt_date": "YYYY-MM-DD", "items": [{"name": "string", "price": number}], "category": "SHOPPING" }`;
       }
 
-      const response = await openai.responses.create({
-        model: "gpt-4o-mini", // Updated to the faster/cheaper model
-        input: [
+      // ✅ FIX 1 & 2: Use chat.completions and 'messages'
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        response_format: { type: "json_object" }, // Pro-tip: Forces OpenAI to return valid JSON
+        messages: [
           {
             role: "user",
             content: [
               {
-                type: "input_text",
+                type: "text", // ✅ FIX 3: Must be "text"
                 text: promptText,
               },
               {
-                type: "input_image",
-                image_url: imageUrl,
+                type: "image_url", // ✅ FIX 3: Must be "image_url"
+                image_url: {
+                  url: imageUrl, // Must be passed inside a 'url' object
+                },
               },
             ],
           },
@@ -198,10 +202,8 @@ export default async function handler(req, res) {
 
       console.log("🔍 Raw OpenAI response:", JSON.stringify(response, null, 2));
 
-      const first = response.output[0]?.content[0];
-      const outputText =
-        (first && "text" in first && first.text) ||
-        (typeof first === "string" ? first : "");
+      // ✅ FIX 4: Correctly parse the standard OpenAI response object
+      const outputText = response.choices[0]?.message?.content || "";
 
       if (!outputText) {
         throw new Error("No text output from OpenAI");
@@ -209,6 +211,7 @@ export default async function handler(req, res) {
 
       console.log("📝 OpenAI output text:", outputText);
 
+      // (The rest of your cleaning and JSON parsing remains exactly the same!)
       const cleaned = outputText
         .replace(/```json/gi, "")
         .replace(/```/g, "")
